@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de QR Codes para Cadeiras</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ff6b6b;
+            margin-bottom: 30px;
+        }
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .qr-item {
+            background-color: #222;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #444;
+        }
+        .qr-item h3 {
+            color: #ff6b6b;
+            margin-bottom: 15px;
+        }
+        .qr-code {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .vip {
+            border-color: #6a4cff;
+        }
+        .vip h3 {
+            color: #6a4cff;
+        }
+        .print-btn {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 10px;
+        }
+        .print-btn:hover {
+            background-color: #ff5252;
+        }
+        @media print {
+            body {
+                background-color: white;
+                color: black;
+            }
+            .qr-item {
+                background-color: white;
+                border: 1px solid #000;
+                page-break-inside: avoid;
+            }
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Gerador de QR Codes - CineMax</h1>
+        <p>QR Codes para as cadeiras do cinema (A1 até E10)</p>
+        
+        <div>
+            <button class="print-btn" onclick="window.print()">🖨️ Imprimir QR Codes</button>
+            <button class="print-btn" onclick="downloadAll()">💾 Baixar Todos</button>
+            <button class="print-btn" onclick="generateCodes()">🔄 Regenerar Códigos</button>
+        </div>
+        
+        <div class="qr-grid" id="qrGrid">
+            <!-- QR codes serão gerados aqui -->
+        </div>
+    </div>
+
+    <script>
+        const rows = ['A', 'B', 'C', 'D', 'E'];
+        const seatsPerRow = 10;
+        const qrGrid = document.getElementById('qrGrid');
+
+        async function generateCodes() {
+            qrGrid.innerHTML = '';
+            
+            for (const row of rows) {
+                for (let i = 1; i <= seatsPerRow; i++) {
+                    const seatCode = `${row}${i}`;
+                    const isVip = row === 'A'; // Primeira fileira é VIP
+                    
+                    await createQRCode(seatCode, isVip);
+                }
+            }
+        }
+
+        async function createQRCode(seatCode, isVip = false) {
+            const qrItem = document.createElement('div');
+            qrItem.className = `qr-item ${isVip ? 'vip' : ''}`;
+            
+            const canvas = document.createElement('canvas');
+            
+            try {
+                await QRCode.toCanvas(canvas, seatCode, {
+                    width: 150,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                });
+                
+                qrItem.innerHTML = `
+                    <h3>${seatCode} ${isVip ? '(VIP)' : ''}</h3>
+                    <div class="qr-code"></div>
+                    <p style="margin-top: 10px; font-size: 14px;">
+                        Escaneie este código na entrada
+                    </p>
+                `;
+                
+                qrItem.querySelector('.qr-code').appendChild(canvas);
+                qrGrid.appendChild(qrItem);
+                
+            } catch (error) {
+                console.error('Erro ao gerar QR code para', seatCode, error);
+            }
+        }
+
+        async function downloadAll() {
+            const zip = new JSZip();
+            
+            for (const row of rows) {
+                for (let i = 1; i <= seatsPerRow; i++) {
+                    const seatCode = `${row}${i}`;
+                    
+                    try {
+                        const canvas = document.createElement('canvas');
+                        await QRCode.toCanvas(canvas, seatCode, {
+                            width: 300,
+                            margin: 4
+                        });
+                        
+                        const dataURL = canvas.toDataURL('image/png');
+                        const base64 = dataURL.split(',')[1];
+                        
+                        zip.file(`${seatCode}.png`, base64, {base64: true});
+                        
+                    } catch (error) {
+                        console.error('Erro ao gerar QR code para download:', seatCode);
+                    }
+                }
+            }
+            
+            // Gerar e baixar o arquivo ZIP
+            zip.generateAsync({type: "blob"}).then(function(content) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = 'qr-codes-cadeiras.zip';
+                link.click();
+            });
+        }
+
+        // Gerar códigos quando a página carregar
+        document.addEventListener('DOMContentLoaded', generateCodes);
+    </script>
+    
+    <!-- Adicionar JSZip apenas se necessário para download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+</body>
+</html>
