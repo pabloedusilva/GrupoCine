@@ -1,156 +1,103 @@
 // Conectar ao WebSocket
 const socket = io();
 
-let html5QrCode;
 let currentSeatCode = null;
 let seats = [];
 
 // Elementos DOM
-const codeInputSection = document.getElementById('codeInputSection');
-const currentScanDiv = document.getElementById('currentScan');
-const codeInput = document.getElementById('codeInput');
-const validateBtn = document.getElementById('validateBtn');
 const statusMessage = document.getElementById('statusMessage');
 const seatingArea = document.getElementById('seatingArea');
+// Modal
+const seatModal = document.getElementById('seatModal');
+const seatInfo = document.getElementById('seatInfo');
+const modalCodeInput = document.getElementById('modalCodeInput');
+const closeSeatModalBtn = document.getElementById('closeSeatModal');
+const cancelSeatModalBtn = document.getElementById('cancelSeatModal');
+const confirmSeatValidationBtn = document.getElementById('confirmSeatValidation');
 
 // Inicializar quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', function() {
-    initializeQRScanner();
     loadSeats();
-    setupEventListeners();
+    setupGlobalListeners();
+    // Recalcular tamanho dos assentos em mudanças de tamanho/orientação
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(computeResponsiveSeatSizing, 100);
+    });
+    window.addEventListener('orientationchange', () => {
+        setTimeout(computeResponsiveSeatSizing, 150);
+    });
 });
 
-// Configurar event listeners
-function setupEventListeners() {
-    validateBtn.addEventListener('click', validateSeatCode);
-    
-    codeInput.addEventListener('input', function(e) {
-        e.target.value = e.target.value.toUpperCase();
-        validateBtn.disabled = e.target.value.length !== 5;
+function setupGlobalListeners() {
+    // Fechar modal
+    closeSeatModalBtn.addEventListener('click', hideSeatModal);
+    cancelSeatModalBtn.addEventListener('click', hideSeatModal);
+    seatModal.addEventListener('click', (e) => {
+        if (e.target === seatModal) hideSeatModal();
     });
-    
-    codeInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && e.target.value.length === 5) {
-            validateSeatCode();
+    // Input sempre maiúsculo
+    modalCodeInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase();
+    });
+    modalCodeInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            confirmSeatValidation();
         }
     });
+    confirmSeatValidationBtn.addEventListener('click', confirmSeatValidation);
 }
 
-// Inicializar scanner QR
-function initializeQRScanner() {
-    html5QrCode = new Html5Qrcode("reader");
-    
-    const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-    };
-    
-    html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        onScanSuccess,
-        onScanFailure
-    ).catch(err => {
-        console.error("Erro ao iniciar scanner:", err);
-        showMessage("Erro ao acessar a câmera. Verifique as permissões.", "error");
-    });
+function showSeatModal(seatCode) {
+    currentSeatCode = seatCode;
+    seatInfo.textContent = `Cadeira: ${seatCode}`;
+    modalCodeInput.value = '';
+    seatModal.classList.add('active');
+    seatModal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => modalCodeInput.focus(), 0);
 }
 
-// Callback quando QR code é lido com sucesso
-function onScanSuccess(decodedText, decodedResult) {
-    currentSeatCode = decodedText.trim().toUpperCase();
-    
-    // Notificar servidor sobre o scan
-    socket.emit('qrScanned', currentSeatCode);
-    
-    // Mostrar seção de input do código
-    showCodeInputSection(currentSeatCode);
-    
-    // Parar o scanner temporariamente
-    html5QrCode.pause();
-    
-    console.log("QR Code escaneado:", currentSeatCode);
+function hideSeatModal() {
+    seatModal.classList.remove('active');
+    seatModal.setAttribute('aria-hidden', 'true');
 }
 
-// Callback quando há erro no scan
-function onScanFailure(error) {
-    // Ignorar erros de scan contínuo
-    if (error.includes("NotFoundException")) {
+async function confirmSeatValidation() {
+    const code = modalCodeInput.value.trim().toUpperCase();
+    if (!currentSeatCode || code.length !== 5) {
+        showMessage('Informe o código de 5 caracteres.', 'error');
         return;
     }
-    console.warn("Erro no scan:", error);
-}
+    const previousHtml = confirmSeatValidationBtn.innerHTML;
+    confirmSeatValidationBtn.disabled = true;
+    confirmSeatValidationBtn.innerHTML = '<div class="loader"></div>';
 
-// Mostrar seção de input do código
-function showCodeInputSection(seatCode) {
-    currentScanDiv.innerHTML = `
-        <div class="scan-info">Cadeira Escaneada: <strong>${seatCode}</strong></div>
-        <p>Digite o código único de 5 caracteres para esta cadeira:</p>
-    `;
-    
-    codeInputSection.classList.add('active');
-    codeInput.value = '';
-    codeInput.focus();
-    validateBtn.disabled = true;
-}
-
-// Validar código da cadeira
-async function validateSeatCode() {
-    if (!currentSeatCode || codeInput.value.length !== 5) {
-        showMessage("Por favor, escaneie uma cadeira e digite o código de 5 caracteres.", "error");
-        return;
-    }
-    
-    const uniqueCode = codeInput.value.trim().toUpperCase();
-    
-    // Mostrar loader
-    validateBtn.disabled = true;
-    validateBtn.innerHTML = '<div class="loader"></div>';
-    
     try {
         const response = await fetch('/api/validate-seat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                seatCode: currentSeatCode,
-                uniqueCode: uniqueCode,
-                userIP: null // O servidor pegará automaticamente
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seatCode: currentSeatCode, uniqueCode: code, userIP: null })
         });
-        
         const result = await response.json();
-        
         if (result.success) {
-            showMessage(`✅ ${result.message}`, "success");
-            
-            // Atualizar visual da cadeira
+            showMessage(`✅ ${result.message}`, 'success');
             updateSeatVisual(currentSeatCode, 'occupied');
-            
-            // Resetar interface
-            resetScanInterface();
-            
-            // Reiniciar scanner após 3 segundos
-            setTimeout(() => {
-                html5QrCode.resume();
-            }, 3000);
-            
+            // Atualizar dados locais
+            const seatIndex = seats.findIndex(s => s.seat_code === currentSeatCode);
+            if (seatIndex !== -1) seats[seatIndex].status = 'occupied';
+            hideSeatModal();
         } else {
-            showMessage(`❌ ${result.message}`, "error");
-            
-            // Limpar input para nova tentativa
-            codeInput.value = '';
-            codeInput.focus();
+            showMessage(`❌ ${result.message}`, 'error');
+            modalCodeInput.focus();
+            modalCodeInput.select();
         }
-        
-    } catch (error) {
-        console.error('Erro ao validar código:', error);
-        showMessage("Erro de conexão. Tente novamente.", "error");
+    } catch (err) {
+        console.error('Erro ao validar código:', err);
+        showMessage('Erro de conexão. Tente novamente.', 'error');
     } finally {
-        validateBtn.disabled = false;
-        validateBtn.innerHTML = 'Validar Código';
+        confirmSeatValidationBtn.disabled = false;
+        confirmSeatValidationBtn.innerHTML = previousHtml || 'Validar';
     }
 }
 
@@ -169,46 +116,62 @@ async function loadSeats() {
 // Renderizar mapa de cadeiras
 function renderSeats() {
     seatingArea.innerHTML = '';
-    
-    const rows = ['A', 'B', 'C', 'D', 'E'];
-    const seatsPerRow = 10;
-    
-    rows.forEach(rowLetter => {
+    // Agrupar por fileira dinamicamente
+    const rowsMap = new Map();
+    seats.forEach(s => {
+        if (!rowsMap.has(s.row_letter)) rowsMap.set(s.row_letter, []);
+        rowsMap.get(s.row_letter).push(s);
+    });
+    // Ordenar fileiras e assentos
+    const rowLetters = Array.from(rowsMap.keys()).sort();
+    rowLetters.forEach(rowLetter => {
+        const rowSeats = rowsMap.get(rowLetter).sort((a,b) => a.seat_number - b.seat_number);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'row';
-        
-        // Label da fileira
+
         const rowLabel = document.createElement('div');
         rowLabel.className = 'row-label';
         rowLabel.textContent = rowLetter;
         rowDiv.appendChild(rowLabel);
-        
-        // Cadeiras da fileira
-        for (let i = 1; i <= seatsPerRow; i++) {
-            const seatCode = `${rowLetter}${i}`;
-            const seatData = seats.find(s => s.seat_code === seatCode);
-            
+
+        rowSeats.forEach(seatData => {
+            const seatCode = seatData.seat_code;
             const seatDiv = document.createElement('div');
             seatDiv.className = 'seat';
             seatDiv.dataset.seatCode = seatCode;
-            seatDiv.textContent = i;
-            
-            if (seatData) {
-                // Aplicar classes baseadas no status
-                seatDiv.classList.add(seatData.status);
-                
-                if (seatData.is_vip) {
-                    seatDiv.classList.add('vip');
+            seatDiv.textContent = seatData.seat_number;
+            // Acessibilidade
+            const isOccupied = seatData.status === 'occupied';
+            seatDiv.setAttribute('role', 'button');
+            seatDiv.setAttribute('tabindex', isOccupied ? '-1' : '0');
+            seatDiv.setAttribute('aria-label', `Cadeira ${seatCode} ${seatData.is_vip ? 'VIP' : ''} - ${seatData.status || 'available'}`);
+
+            // Aplicar classes baseadas no status
+            seatDiv.classList.add(seatData.status || 'available');
+            if (seatData.is_vip) seatDiv.classList.add('vip');
+            if (isOccupied) seatDiv.classList.add('disabled');
+
+            // Clique para abrir modal (exceto ocupada)
+            seatDiv.addEventListener('click', () => {
+                if (isOccupied) return;
+                showSeatModal(seatCode);
+            });
+            // Teclado: Enter/Espaço
+            seatDiv.addEventListener('keydown', (e) => {
+                if (isOccupied) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    showSeatModal(seatCode);
                 }
-            } else {
-                seatDiv.classList.add('available');
-            }
-            
+            });
+
             rowDiv.appendChild(seatDiv);
-        }
-        
+        });
+
         seatingArea.appendChild(rowDiv);
     });
+    // Ajustar tamanhos após renderizar
+    computeResponsiveSeatSizing();
 }
 
 // Atualizar visual de uma cadeira específica
@@ -224,9 +187,44 @@ function updateSeatVisual(seatCode, newStatus) {
 
 // Resetar interface de scan
 function resetScanInterface() {
-    codeInputSection.classList.remove('active');
     currentSeatCode = null;
-    codeInput.value = '';
+}
+
+// Ajusta o tamanho dos assentos para caber na largura disponível por fileira
+function computeResponsiveSeatSizing() {
+    try {
+        if (!seats || seats.length === 0) return;
+        const container = seatingArea;
+        if (!container) return;
+        const style = getComputedStyle(document.documentElement);
+        // Usar gap atual ou fallback
+        let gap = parseFloat(style.getPropertyValue('--seat-gap'));
+        if (Number.isNaN(gap) || gap <= 0) gap = 10;
+
+        // Descobrir a maior quantidade de assentos em uma fileira
+        const counts = new Map();
+        seats.forEach(s => counts.set(s.row_letter, (counts.get(s.row_letter) || 0) + 1));
+        const maxInRow = Array.from(counts.values()).reduce((a, b) => Math.max(a, b), 0) || 1;
+
+        // Medir largura útil: largura do container menos label e pequenas margens internas
+        const firstLabel = container.querySelector('.row-label');
+        const rowLabelW = firstLabel ? firstLabel.offsetWidth : 30;
+        const paddingAllowance = 16; // margem interna aproximada
+        const available = container.clientWidth - rowLabelW - paddingAllowance;
+        if (available <= 0) return;
+
+        // Calcular tamanho por cadeira (inteiro) com limites razoáveis
+        const totalGaps = (maxInRow - 1) * gap;
+        const seatPx = Math.floor((available - totalGaps) / maxInRow);
+        const minPx = 32; // mínimo confortável de toque
+        const maxPx = 56; // máximo para telas grandes
+        const finalSize = Math.max(minPx, Math.min(maxPx, seatPx));
+
+        // Se calculado ficou muito pequeno, manter scroll horizontal (não força abaixo do mínimo)
+        document.documentElement.style.setProperty('--seat-size', `${finalSize}px`);
+    } catch (e) {
+        console.warn('Falha ao ajustar tamanho responsivo dos assentos:', e);
+    }
 }
 
 // Mostrar mensagem de status

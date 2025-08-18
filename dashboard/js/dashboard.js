@@ -114,49 +114,42 @@ function getStatusText(status) {
 // Renderizar mapa de assentos administrativo
 function renderAdminSeats() {
     adminSeatingArea.innerHTML = '';
-    
-    const rows = ['A', 'B', 'C', 'D', 'E'];
-    const seatsPerRow = 10;
-    
-    rows.forEach(rowLetter => {
+    // Agrupar dinamicamente
+    const rowsMap = new Map();
+    seats.forEach(s => {
+        if (!rowsMap.has(s.row_letter)) rowsMap.set(s.row_letter, []);
+        rowsMap.get(s.row_letter).push(s);
+    });
+    const rowLetters = Array.from(rowsMap.keys()).sort();
+    rowLetters.forEach(rowLetter => {
+        const rowSeats = rowsMap.get(rowLetter).sort((a,b) => a.seat_number - b.seat_number);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'row';
-        
-        // Label da fileira
+
         const rowLabel = document.createElement('div');
         rowLabel.className = 'row-label';
         rowLabel.textContent = rowLetter;
         rowDiv.appendChild(rowLabel);
-        
-        // Cadeiras da fileira
-        for (let i = 1; i <= seatsPerRow; i++) {
-            const seatCode = `${rowLetter}${i}`;
-            const seatData = seats.find(s => s.seat_code === seatCode);
-            
+
+        rowSeats.forEach(seatData => {
+            const seatCode = seatData.seat_code;
             const seatDiv = document.createElement('div');
             seatDiv.className = 'admin-seat';
             seatDiv.dataset.seatCode = seatCode;
-            seatDiv.textContent = i;
-            seatDiv.title = `${seatCode} - ${seatData ? getStatusText(seatData.status) : 'Disponível'}`;
-            
-            if (seatData) {
-                seatDiv.classList.add(seatData.status);
-                if (seatData.is_vip) {
-                    seatDiv.classList.add('vip');
-                }
-            } else {
-                seatDiv.classList.add('available');
-            }
-            
-            // Event listener para clique na cadeira
+            seatDiv.textContent = seatData.seat_number;
+            seatDiv.title = `${seatCode} - ${getStatusText(seatData.status)}`;
+
+            seatDiv.classList.add(seatData.status || 'available');
+            if (seatData.is_vip) seatDiv.classList.add('vip');
+
             seatDiv.addEventListener('click', () => {
                 seatSelect.value = seatCode;
                 showSeatDetails(seatCode);
             });
-            
+
             rowDiv.appendChild(seatDiv);
-        }
-        
+        });
+
         adminSeatingArea.appendChild(rowDiv);
     });
 }

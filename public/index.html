@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CineMax - Sistema de Assentos QR</title>
+    <title>CineMax - Sistema de Assentos</title>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
+        :root {
+            /* Tamanhos adaptativos */
+            --seat-size: clamp(28px, 6vw, 48px);
+            --seat-gap: clamp(6px, 1.6vw, 14px);
+            --row-label-w: clamp(22px, 4vw, 36px);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -50,92 +55,29 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 1200px;
+            max-width: 1400px;
+            padding: 0 12px;
         }
-
-        .scanner-section {
-            background-color: #222;
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            width: 100%;
-            max-width: 600px;
-            text-align: center;
-        }
-
-        .scanner-title {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            color: #ff6b6b;
-        }
-
-        #reader {
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto 20px;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .code-input-section {
-            background-color: #333;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .code-input-section.active {
-            display: block;
-        }
-
-        .code-input {
-            width: 100%;
-            padding: 15px;
-            font-size: 1.2rem;
-            border: 2px solid #555;
-            border-radius: 8px;
-            background-color: #444;
-            color: #fff;
-            text-align: center;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 15px;
-        }
-
-        .code-input:focus {
-            outline: none;
-            border-color: #ff6b6b;
-        }
-
-        .validate-btn {
-            width: 100%;
-            padding: 15px;
+        
+        /* Botões de ação padrão */
+        .btn {
+            padding: 12px 16px;
             background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: bold;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
         }
-
-        .validate-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
-        }
-
-        .validate-btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,107,107,0.35); }
+        .btn:disabled { background:#555; cursor:not-allowed; box-shadow:none; transform:none; }
+        .btn.secondary { background:#2e2e2e; }
 
         .screen {
-            width: 80%;
-            height: 80px;
+            width: 100%;
+            height: clamp(50px, 8vw, 90px);
             background: linear-gradient(to bottom, #e0e0e0, #b0b0b0);
             margin: 0 auto 40px;
             border-radius: 5px;
@@ -145,36 +87,43 @@
             align-items: center;
             color: #333;
             font-weight: bold;
-            font-size: 1.2rem;
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
             transform: perspective(500px) rotateX(20deg);
         }
 
         .seating-area {
             width: 100%;
-            max-width: 800px;
+            max-width: 1100px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
+            gap: var(--seat-gap);
+            padding: 0 6px 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
         }
 
         .row {
             display: flex;
-            gap: 15px;
+            gap: var(--seat-gap);
             align-items: center;
+            width: 100%;
+            min-width: 0;
         }
 
         .row-label {
-            width: 30px;
+            width: var(--row-label-w);
             text-align: center;
             font-weight: bold;
             color: #ccc;
-            margin-right: 10px;
+            margin-right: 6px;
+            flex: 0 0 auto;
         }
 
         .seat {
-            width: 40px;
-            height: 40px;
+            width: var(--seat-size);
+            height: var(--seat-size);
             background-color: #444;
             border-radius: 8px 8px 4px 4px;
             display: flex;
@@ -185,8 +134,9 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            font-size: 0.8rem;
+            font-size: clamp(0.62rem, 1.8vw, 0.9rem);
             font-weight: bold;
+            flex: 0 0 auto;
         }
 
         .seat:before {
@@ -219,6 +169,11 @@
             color: #fff;
         }
 
+        .seat.disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+
         .seat.vip.available {
             background-color: #6a4cff;
             color: #fff;
@@ -240,17 +195,18 @@
             padding: 20px;
             border-radius: 10px;
             width: 100%;
-            max-width: 600px;
+            max-width: 800px;
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 12px;
         }
 
         .info-item {
             display: flex;
             align-items: center;
             gap: 10px;
+            flex: 1 1 140px;
         }
 
         .info-seat {
@@ -302,82 +258,54 @@
             color: #2196F3;
         }
 
-        .current-scan {
-            background-color: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+    .modal { width: min(92vw, 520px); max-width: 520px; background: #1e1e1e; border: 1px solid #333; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden; }
+        .modal-header { padding: 16px 20px; border-bottom: 1px solid #2a2a2a; display:flex; align-items:center; justify-content: space-between; }
+        .modal-title { font-size: 1.1rem; font-weight: 700; }
+        .modal-close { background: transparent; color: #bbb; border: none; font-size: 1.5rem; cursor: pointer; }
+        .modal-body { padding: 16px 20px; display: grid; gap: 14px; }
+        .modal-body .hint { color:#bbb; font-size: 0.95rem; }
+        .modal-footer { padding: 14px 20px 18px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #2a2a2a; }
+        .input { width: 100%; padding: 14px; font-size: 1.1rem; border: 2px solid #444; border-radius: 10px; background: #2a2a2a; color: #fff; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
+        .input:focus { outline: none; border-color: #ff6b6b; }
+        .loader { border: 3px solid #333; border-top: 3px solid #ff6b6b; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .scan-info {
-            font-size: 1.1rem;
-            color: #ff6b6b;
-            margin-bottom: 10px;
-        }
-
-        .loader {
-            border: 3px solid #333;
-            border-top: 3px solid #ff6b6b;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
             .main-container {
                 padding: 10px;
             }
-            
-            .seat {
-                width: 35px;
-                height: 35px;
-                font-size: 0.7rem;
-            }
-            
-            .row {
-                gap: 10px;
-            }
+            .screen { margin-bottom: 28px; }
+        }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 2rem; }
+            .subtitle { font-size: 1rem; }
+            .row { gap: clamp(6px, 1.5vw, 10px); }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 16px 10px; }
+            header { margin-bottom: 20px; }
+            header h1 { font-size: 1.6rem; }
+            .subtitle { font-size: 0.95rem; }
+            .info-panel { padding: 14px; gap: 10px; }
+            .modal-title { font-size: 1rem; }
+            .btn { padding: 10px 14px; font-size: 0.95rem; }
         }
     </style>
 </head>
 <body>
     <header>
         <h1>CineMax Premium</h1>
-        <p class="subtitle">Sistema de Validação por QR Code</p>
+        <p class="subtitle">Validação de Assentos por Código</p>
     </header>
 
     <div class="main-container">
-        <!-- Seção do Scanner -->
-        <div class="scanner-section">
-            <h2 class="scanner-title">📱 Escaneie o QR Code da Cadeira</h2>
-            <div id="reader"></div>
-            
-            <!-- Seção de Input do Código -->
-            <div class="code-input-section" id="codeInputSection">
-                <div class="current-scan" id="currentScan"></div>
-                <input 
-                    type="text" 
-                    id="codeInput" 
-                    class="code-input" 
-                    placeholder="Digite o código de 5 caracteres"
-                    maxlength="5"
-                >
-                <button id="validateBtn" class="validate-btn">
-                    Validar Código
-                </button>
-            </div>
-            
-            <!-- Mensagens de Status -->
-            <div id="statusMessage" class="status-message"></div>
-        </div>
+        <!-- Mensagens de Status -->
+        <div id="statusMessage" class="status-message"></div>
 
         <!-- Mapa de Assentos -->
         <div class="screen">TELA</div>
@@ -403,6 +331,25 @@
             <div class="info-item">
                 <div class="info-seat vip-info"></div>
                 <span>VIP</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Validação de Cadeira -->
+    <div class="modal-overlay" id="seatModal" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="seatModalTitle">
+            <div class="modal-header">
+                <div class="modal-title" id="seatModalTitle">Validar Cadeira</div>
+                <button class="modal-close" id="closeSeatModal" aria-label="Fechar">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="hint" id="seatInfo">Cadeira: -</div>
+                <label for="modalCodeInput" class="hint">Digite o código de 5 caracteres gerado para esta cadeira:</label>
+                <input type="text" id="modalCodeInput" class="input" maxlength="5" placeholder="EX: ABC12" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" id="cancelSeatModal">Cancelar</button>
+                <button class="btn" id="confirmSeatValidation">Validar</button>
             </div>
         </div>
     </div>
