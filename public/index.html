@@ -1,69 +1,76 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GrupoCine - Sistema de Assentos</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="css/index.css">
-</head>
-<body>
-    <header>
-        <h1>GrupoCine</h1>
-        <p class="subtitle">Clique para validar seu assento</p>
-    </header>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>GrupoCine - Sistema de Assentos</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <link rel="stylesheet" href="css/index.css">
+    </head>
+    <body>
+        <header>
+            <h1>GrupoCine</h1>
+            <p class="subtitle">Clique para validar seu assento</p>
+        </header>
 
-    <div class="main-container">
-        <!-- Mensagens de Status -->
-        <div id="statusMessage" class="status-message"></div>
+        <div class="main-container">
+            <!-- Mensagens de Status -->
+            <div id="statusMessage" class="status-message"></div>
 
-        <!-- Mapa de Assentos -->
-        <div class="screen">TELA</div>
-        
-        <div class="seating-area" id="seatingArea">
-            <!-- As cadeiras serão geradas dinamicamente -->
+            <!-- Mapa de Assentos -->
+            <div class="screen">TELA</div>
+
+            <div class="seating-area" id="seatingArea">
+                <!-- As cadeiras serão geradas dinamicamente -->
+            </div>
+
+            <!-- Legenda -->
+            <div class="info-panel">
+                <div class="info-item">
+                    <div class="info-seat available-info"></div>
+                    <span>Disponível</span>
+                </div>
+                <div class="info-item">
+                    <div class="info-seat purchased-info"></div>
+                    <span>Comprada</span>
+                </div>
+                <div class="info-item">
+                    <div class="info-seat occupied-info"></div>
+                    <span>Ocupada</span>
+                </div>
+                <div class="info-item">
+                    <div class="info-seat vip-info"></div>
+                    <span>VIP</span>
+                </div>
+            </div>
         </div>
 
-        <!-- Legenda -->
-        <div class="info-panel">
-            <div class="info-item">
-                <div class="info-seat available-info"></div>
-                <span>Disponível</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat purchased-info"></div>
-                <span>Comprada</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat occupied-info"></div>
-                <span>Ocupada</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat vip-info"></div>
-                <span>VIP</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Validação de Cadeira -->
-    <div class="modal-overlay" id="seatModal" aria-hidden="true">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="seatModalTitle">
-            <div class="modal-header">
-                <div class="modal-title" id="seatModalTitle">Validar Cadeira</div>
-                <button class="modal-close" id="closeSeatModal" aria-label="Fechar">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="hint" id="seatInfo">Cadeira: -</div>
-                <label for="modalCodeInput" class="hint">Digite o código de 5 caracteres gerado para esta cadeira:</label>
-                <input type="text" id="modalCodeInput" class="input" maxlength="5" placeholder="EX: ABC12" />
-            </div>
-            <div class="modal-footer">
-                <button class="btn secondary" id="cancelSeatModal">Cancelar</button>
-                <button class="btn" id="confirmSeatValidation">Validar</button>
+        <!-- Modal de Validação de Cadeira -->
+        <div class="modal-overlay" id="seatModal" aria-hidden="true">
+            <div class="modal" role="dialog" aria-modal="true"
+                aria-labelledby="seatModalTitle">
+                <div class="modal-header">
+                    <div class="modal-title" id="seatModalTitle">Validar
+                        Cadeira</div>
+                    <button class="modal-close" id="closeSeatModal"
+                        aria-label="Fechar">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="hint" id="seatInfo">Cadeira: -</div>
+                    <label for="modalCodeInput" class="hint">Digite o código de
+                        5 caracteres gerado para esta cadeira:</label>
+                    <input type="text" id="modalCodeInput" class="input"
+                        maxlength="5" placeholder="EX: ABC12" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn secondary"
+                        id="cancelSeatModal">Cancelar</button>
+                    <button class="btn"
+                        id="confirmSeatValidation">Validar</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script src="js/index.js"></script>
-</body>
+        <script src="js/index.js"></script>
+    </body>
 </html>
