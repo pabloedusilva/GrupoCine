@@ -19,15 +19,6 @@ const confirmSeatValidationBtn = document.getElementById('confirmSeatValidation'
 document.addEventListener('DOMContentLoaded', function() {
     loadSeats();
     setupGlobalListeners();
-    // Recalcular tamanho dos assentos em mudanças de tamanho/orientação
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(computeResponsiveSeatSizing, 100);
-    });
-    window.addEventListener('orientationchange', () => {
-        setTimeout(computeResponsiveSeatSizing, 150);
-    });
 });
 
 function setupGlobalListeners() {
@@ -140,29 +131,16 @@ function renderSeats() {
             seatDiv.className = 'seat';
             seatDiv.dataset.seatCode = seatCode;
             seatDiv.textContent = seatData.seat_number;
-            // Acessibilidade
-            const isOccupied = seatData.status === 'occupied';
-            seatDiv.setAttribute('role', 'button');
-            seatDiv.setAttribute('tabindex', isOccupied ? '-1' : '0');
-            seatDiv.setAttribute('aria-label', `Cadeira ${seatCode} ${seatData.is_vip ? 'VIP' : ''} - ${seatData.status || 'available'}`);
 
             // Aplicar classes baseadas no status
             seatDiv.classList.add(seatData.status || 'available');
             if (seatData.is_vip) seatDiv.classList.add('vip');
-            if (isOccupied) seatDiv.classList.add('disabled');
+            if (seatData.status === 'occupied') seatDiv.classList.add('disabled');
 
             // Clique para abrir modal (exceto ocupada)
             seatDiv.addEventListener('click', () => {
-                if (isOccupied) return;
+                if (seatData.status === 'occupied') return;
                 showSeatModal(seatCode);
-            });
-            // Teclado: Enter/Espaço
-            seatDiv.addEventListener('keydown', (e) => {
-                if (isOccupied) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    showSeatModal(seatCode);
-                }
             });
 
             rowDiv.appendChild(seatDiv);
@@ -170,8 +148,6 @@ function renderSeats() {
 
         seatingArea.appendChild(rowDiv);
     });
-    // Ajustar tamanhos após renderizar
-    computeResponsiveSeatSizing();
 }
 
 // Atualizar visual de uma cadeira específica
@@ -188,43 +164,6 @@ function updateSeatVisual(seatCode, newStatus) {
 // Resetar interface de scan
 function resetScanInterface() {
     currentSeatCode = null;
-}
-
-// Ajusta o tamanho dos assentos para caber na largura disponível por fileira
-function computeResponsiveSeatSizing() {
-    try {
-        if (!seats || seats.length === 0) return;
-        const container = seatingArea;
-        if (!container) return;
-        const style = getComputedStyle(document.documentElement);
-        // Usar gap atual ou fallback
-        let gap = parseFloat(style.getPropertyValue('--seat-gap'));
-        if (Number.isNaN(gap) || gap <= 0) gap = 10;
-
-        // Descobrir a maior quantidade de assentos em uma fileira
-        const counts = new Map();
-        seats.forEach(s => counts.set(s.row_letter, (counts.get(s.row_letter) || 0) + 1));
-        const maxInRow = Array.from(counts.values()).reduce((a, b) => Math.max(a, b), 0) || 1;
-
-        // Medir largura útil: largura do container menos label e pequenas margens internas
-        const firstLabel = container.querySelector('.row-label');
-        const rowLabelW = firstLabel ? firstLabel.offsetWidth : 30;
-        const paddingAllowance = 16; // margem interna aproximada
-        const available = container.clientWidth - rowLabelW - paddingAllowance;
-        if (available <= 0) return;
-
-        // Calcular tamanho por cadeira (inteiro) com limites razoáveis
-        const totalGaps = (maxInRow - 1) * gap;
-        const seatPx = Math.floor((available - totalGaps) / maxInRow);
-        const minPx = 32; // mínimo confortável de toque
-        const maxPx = 56; // máximo para telas grandes
-        const finalSize = Math.max(minPx, Math.min(maxPx, seatPx));
-
-        // Se calculado ficou muito pequeno, manter scroll horizontal (não força abaixo do mínimo)
-        document.documentElement.style.setProperty('--seat-size', `${finalSize}px`);
-    } catch (e) {
-        console.warn('Falha ao ajustar tamanho responsivo dos assentos:', e);
-    }
 }
 
 // Mostrar mensagem de status

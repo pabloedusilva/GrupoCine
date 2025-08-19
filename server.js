@@ -53,7 +53,7 @@ app.get('/api/seats', async (req, res) => {
             LEFT JOIN seat_sessions ss ON s.id = ss.seat_id AND ss.status = 'active'
             ORDER BY s.row_letter, s.seat_number
         `;
-        
+
         const seats = await executeQuery(query);
         res.json(seats);
     } catch (error) {
@@ -66,11 +66,11 @@ app.get('/api/seats', async (req, res) => {
 app.post('/api/validate-seat', async (req, res) => {
     try {
         const { seatCode, uniqueCode, userIP } = req.body;
-        
+
         if (!seatCode || !uniqueCode) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Código da cadeira e código único são obrigatórios' 
+            return res.status(400).json({
+                success: false,
+                message: 'Código da cadeira e código único são obrigatórios'
             });
         }
 
@@ -87,31 +87,31 @@ app.post('/api/validate-seat', async (req, res) => {
             INNER JOIN seat_codes sc ON s.id = sc.seat_id
             WHERE s.seat_code = ? AND sc.unique_code = ? AND sc.is_active = 1
         `;
-        
+
         const results = await executeQuery(query, [seatCode, uniqueCode]);
-        
+
         if (results.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Código inválido ou cadeira não encontrada' 
+            return res.status(404).json({
+                success: false,
+                message: 'Código inválido ou cadeira não encontrada'
             });
         }
 
         const seatData = results[0];
-        
+
         // Verificar se já foi usado
         if (seatData.is_used) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Este código já foi utilizado' 
+            return res.status(400).json({
+                success: false,
+                message: 'Este código já foi utilizado'
             });
         }
-        
+
         // Verificar se expirou
         if (new Date(seatData.expires_at) < new Date()) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Código expirado' 
+            return res.status(400).json({
+                success: false,
+                message: 'Código expirado'
             });
         }
 
@@ -120,31 +120,31 @@ app.post('/api/validate-seat', async (req, res) => {
             'UPDATE seat_codes SET is_used = 1, used_at = NOW() WHERE id = ?',
             [seatData.code_id]
         );
-        
+
         // Criar sessão ativa
         await executeQuery(
             'INSERT INTO seat_sessions (seat_id, code_id, user_ip) VALUES (?, ?, ?)',
             [seatData.seat_id, seatData.code_id, userIP || req.ip]
         );
-        
+
         // Notificar todos os clientes via WebSocket
         io.emit('seatStatusUpdate', {
             seatCode: seatData.seat_code,
             status: 'occupied',
             timestamp: new Date()
         });
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Acesso liberado com sucesso!',
             seatCode: seatData.seat_code
         });
-        
+
     } catch (error) {
         console.error('Erro ao validar código:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Erro interno do servidor' 
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno do servidor'
         });
     }
 });
@@ -153,11 +153,11 @@ app.post('/api/validate-seat', async (req, res) => {
 app.post('/api/generate-code', async (req, res) => {
     try {
         const { seatCode } = req.body;
-        
+
         if (!seatCode) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Código da cadeira é obrigatório' 
+            return res.status(400).json({
+                success: false,
+                message: 'Código da cadeira é obrigatório'
             });
         }
 
@@ -166,26 +166,26 @@ app.post('/api/generate-code', async (req, res) => {
             'SELECT id FROM seats WHERE seat_code = ?',
             [seatCode]
         );
-        
+
         if (seatResults.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Cadeira não encontrada' 
+            return res.status(404).json({
+                success: false,
+                message: 'Cadeira não encontrada'
             });
         }
 
         const seatId = seatResults[0].id;
-        
+
         // Desativar códigos anteriores para esta cadeira
         await executeQuery(
             'UPDATE seat_codes SET is_active = 0 WHERE seat_id = ? AND is_active = 1',
             [seatId]
         );
-        
+
         // Gerar novo código único
         let newCode;
         let codeExists = true;
-        
+
         // Garantir que o código seja único
         while (codeExists) {
             newCode = generateUniqueCode();
@@ -195,36 +195,36 @@ app.post('/api/generate-code', async (req, res) => {
             );
             codeExists = existingCode.length > 0;
         }
-        
+
         // Inserir novo código
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + (process.env.CODE_EXPIRY_HOURS || 2));
-        
+
         await executeQuery(
             'INSERT INTO seat_codes (seat_id, unique_code, expires_at) VALUES (?, ?, ?)',
             [seatId, newCode, expiresAt]
         );
-        
+
         // Notificar dashboard
         io.emit('newCodeGenerated', {
             seatCode,
             uniqueCode: newCode,
             expiresAt
         });
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Código gerado com sucesso!',
             seatCode,
             uniqueCode: newCode,
             expiresAt
         });
-        
+
     } catch (error) {
         console.error('Erro ao gerar código:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Erro interno do servidor' 
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno do servidor'
         });
     }
 });
@@ -233,11 +233,11 @@ app.post('/api/generate-code', async (req, res) => {
 app.post('/api/end-session', async (req, res) => {
     try {
         const { seatCode } = req.body;
-        
+
         if (!seatCode) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Código da cadeira é obrigatório' 
+            return res.status(400).json({
+                success: false,
+                message: 'Código da cadeira é obrigatório'
             });
         }
 
@@ -248,13 +248,13 @@ app.post('/api/end-session', async (req, res) => {
             INNER JOIN seats s ON ss.seat_id = s.id
             WHERE s.seat_code = ? AND ss.status = 'active'
         `;
-        
+
         const sessions = await executeQuery(sessionQuery, [seatCode]);
-        
+
         if (sessions.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Sessão ativa não encontrada para esta cadeira' 
+            return res.status(404).json({
+                success: false,
+                message: 'Sessão ativa não encontrada para esta cadeira'
             });
         }
 
@@ -263,25 +263,25 @@ app.post('/api/end-session', async (req, res) => {
             'UPDATE seat_sessions SET status = ?, session_end = NOW() WHERE id = ?',
             ['completed', sessions[0].id]
         );
-        
+
         // Notificar todos os clientes
         io.emit('seatStatusUpdate', {
             seatCode,
             status: 'available',
             timestamp: new Date()
         });
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Sessão finalizada com sucesso!',
             seatCode
         });
-        
+
     } catch (error) {
         console.error('Erro ao finalizar sessão:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Erro interno do servidor' 
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno do servidor'
         });
     }
 });
@@ -290,7 +290,7 @@ app.post('/api/end-session', async (req, res) => {
 app.get('/api/seat-history/:seatCode', async (req, res) => {
     try {
         const { seatCode } = req.params;
-        
+
         const query = `
             SELECT 
                 ss.id,
@@ -307,10 +307,10 @@ app.get('/api/seat-history/:seatCode', async (req, res) => {
             ORDER BY ss.accessed_at DESC
             LIMIT 50
         `;
-        
+
         const history = await executeQuery(query, [seatCode]);
         res.json(history);
-        
+
     } catch (error) {
         console.error('Erro ao buscar histórico:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
@@ -345,11 +345,11 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-    console.log('🚀 Iniciando CineMax - Sistema de Assentos QR...');
-    
+    console.log('Iniciando GrupoCine...');
+
     // Inicializar banco de dados
     const dbInitialized = await initializeDatabase();
-    
+
     if (!dbInitialized) {
         console.error('❌ Não foi possível inicializar o banco de dados.');
         console.error('💡 Verifique:');
@@ -358,20 +358,20 @@ async function startServer() {
         console.error('   - Se o usuário tem permissões para criar bancos');
         process.exit(1);
     }
-    
+
     // Testar conexão com o banco
     const dbConnected = await testConnection();
-    
+
     if (!dbConnected) {
         console.error('❌ Não foi possível conectar ao banco de dados após inicialização.');
         process.exit(1);
     }
-    
+
     server.listen(PORT, () => {
-        console.log(`🚀 Servidor rodando na porta ${PORT}`);
-        console.log(`📱 Interface do usuário: http://localhost:${PORT}`);
-        console.log(`📊 Dashboard administrativo: http://localhost:${PORT}/dashboard`);
-        console.log(`🔧 Para gerar QR codes: Abra utils/qr-generator.html`);
+        console.log(`Servidor rodando na porta ${PORT}`);
+        console.log(`Interface do usuário: http://localhost:${PORT}`);
+        console.log(`Dashboard administrativo: http://localhost:${PORT}/dashboard`);
+        console.log(`Para gerar QR codes: Abra utils/qr-generator.html`);
         console.log('');
         console.log('✅ Sistema pronto para uso!');
     });
