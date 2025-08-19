@@ -1,173 +1,146 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CineMax - Dashboard Administrativo</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="css/dashboard.css">
-</head>
-<body>
-    <header class="header">
-        <div class="header-content">
-            <h1>🎬 CineMax - Dashboard Administrativo</h1>
-            <div class="header-stats">
-                <div class="stat-item">
-                    <span class="stat-value" id="totalSeats">50</span>
-                    <span class="stat-label">Total de Cadeiras</span>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>GrupoCine - Dashboard Administrativo</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <link rel="stylesheet" href="css/dashboard.css">
+    </head>
+    <body>
+        <header class="header">
+            <div class="header-content">
+                <h1>GrupoCine - Dashboard Administrativo</h1>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="totalSeats">50</span>
+                        <span class="stat-label">Total de Cadeiras</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="occupiedSeats">0</span>
+                        <span class="stat-label">Ocupadas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="purchasedSeats">0</span>
+                        <span class="stat-label">Compradas</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="availableSeats">50</span>
+                        <span class="stat-label">Disponíveis</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="occupiedSeats">0</span>
-                    <span class="stat-label">Ocupadas</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="purchasedSeats">0</span>
-                    <span class="stat-label">Compradas</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="availableSeats">50</span>
-                    <span class="stat-label">Disponíveis</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="dashboard-grid">
+                <!-- Controle de Códigos -->
+                <section class="panel code-management">
+                    <h2>🔑 Geração de Códigos</h2>
+                    <div class="code-form">
+                        <select id="seatSelect" class="seat-select">
+                            <option value>Selecione uma cadeira</option>
+                        </select>
+                        <button id="generateCodeBtn" class="btn btn-primary">
+                            Gerar Código
+                        </button>
+                    </div>
+
+                    <div id="codeResult" class="code-result"
+                        style="display: none;">
+                        <div class="code-display">
+                            <h3>Código Gerado:</h3>
+                            <div class="code-value" id="generatedCode"></div>
+                            <div class="code-info">
+                                <p><strong>Cadeira:</strong> <span
+                                        id="codeSeat"></span></p>
+                                <p><strong>Expira em:</strong> <span
+                                        id="codeExpiry"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Mapa de Assentos -->
+                <section class="panel seat-map">
+                    <h2>🎭 Mapa de Assentos</h2>
+                    <div class="cinema-container">
+                        <div class="screen">TELA</div>
+                        <div class="seating-area" id="adminSeatingArea">
+                            <!-- Assentos serão gerados dinamicamente -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Atividade em Tempo Real -->
+                <section class="panel activity-feed">
+                    <h2>📊 Atividade em Tempo Real</h2>
+                    <div class="activity-list" id="activityList">
+                        <!-- Atividades serão adicionadas dinamicamente -->
+                    </div>
+                </section>
+
+                <!-- Códigos Ativos -->
+                <section class="panel active-codes">
+                    <h2>🎫 Códigos Ativos</h2>
+                    <div class="codes-list" id="activeCodesList">
+                        <!-- Códigos ativos serão listados aqui -->
+                    </div>
+                </section>
+
+                <!-- Histórico Detalhado -->
+                <section class="panel history">
+                    <h2>📋 Histórico Detalhado</h2>
+                    <div class="history-controls">
+                        <input type="text" id="searchHistory"
+                            placeholder="Buscar por cadeira..."
+                            class="search-input">
+                        <select id="statusFilter" class="filter-select">
+                            <option value>Todos os Status</option>
+                            <option value="active">Ativo</option>
+                            <option value="completed">Finalizado</option>
+                            <option value="expired">Expirado</option>
+                        </select>
+                    </div>
+                    <div class="history-table-container">
+                        <table class="history-table" id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>Cadeira</th>
+                                    <th>Código</th>
+                                    <th>Status</th>
+                                    <th>Início</th>
+                                    <th>Fim</th>
+                                    <th>Duração</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- Dados serão preenchidos dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Notificações -->
+        <div id="notifications" class="notifications"></div>
+
+        <!-- Modal de Confirmação -->
+        <div id="confirmModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 id="modalTitle">Confirmar Ação</h3>
+                <p id="modalMessage">Tem certeza que deseja continuar?</p>
+                <div class="modal-actions">
+                    <button id="modalCancel"
+                        class="btn btn-secondary">Cancelar</button>
+                    <button id="modalConfirm"
+                        class="btn btn-danger">Confirmar</button>
                 </div>
             </div>
         </div>
-    </header>
 
-    <main class="main-content">
-        <div class="dashboard-grid">
-            <!-- Controle de Códigos -->
-            <section class="panel code-management">
-                <h2>🔑 Geração de Códigos</h2>
-                <div class="code-form">
-                    <select id="seatSelect" class="seat-select">
-                        <option value="">Selecione uma cadeira</option>
-                    </select>
-                    <button id="generateCodeBtn" class="btn btn-primary">
-                        Gerar Código
-                    </button>
-                </div>
-                
-                <div id="codeResult" class="code-result" style="display: none;">
-                    <div class="code-display">
-                        <h3>Código Gerado:</h3>
-                        <div class="code-value" id="generatedCode"></div>
-                        <div class="code-info">
-                            <p><strong>Cadeira:</strong> <span id="codeSeat"></span></p>
-                            <p><strong>Expira em:</strong> <span id="codeExpiry"></span></p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Mapa de Assentos -->
-            <section class="panel seat-map">
-                <h2>🎭 Mapa de Assentos</h2>
-                <div class="cinema-container">
-                    <div class="screen">TELA</div>
-                    <div class="seating-area" id="adminSeatingArea">
-                        <!-- Assentos serão gerados dinamicamente -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Atividade em Tempo Real -->
-            <section class="panel activity-feed">
-                <h2>📊 Atividade em Tempo Real</h2>
-                <div class="activity-list" id="activityList">
-                    <!-- Atividades serão adicionadas dinamicamente -->
-                </div>
-            </section>
-
-            <!-- Códigos Ativos -->
-            <section class="panel active-codes">
-                <h2>🎫 Códigos Ativos</h2>
-                <div class="codes-list" id="activeCodesList">
-                    <!-- Códigos ativos serão listados aqui -->
-                </div>
-            </section>
-
-            <!-- Relatórios -->
-            <section class="panel reports">
-                <h2>📈 Relatórios</h2>
-                <div class="report-actions">
-                    <button class="btn btn-secondary" onclick="exportReport()">
-                        📄 Exportar Relatório
-                    </button>
-                    <button class="btn btn-secondary" onclick="clearHistory()">
-                        🗑️ Limpar Histórico
-                    </button>
-                    <button class="btn btn-warning" onclick="endAllSessions()">
-                        🔄 Finalizar Todas as Sessões
-                    </button>
-                </div>
-                
-                <div class="report-summary">
-                    <h3>Resumo da Sessão Atual</h3>
-                    <div class="summary-grid">
-                        <div class="summary-item">
-                            <span class="summary-label">Taxa de Ocupação:</span>
-                            <span class="summary-value" id="occupancyRate">0%</span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="summary-label">Códigos Usados:</span>
-                            <span class="summary-value" id="usedCodes">0</span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="summary-label">Sessão Iniciada:</span>
-                            <span class="summary-value" id="sessionStart">--:--</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Histórico Detalhado -->
-            <section class="panel history">
-                <h2>📋 Histórico Detalhado</h2>
-                <div class="history-controls">
-                    <input type="text" id="searchHistory" placeholder="Buscar por cadeira..." class="search-input">
-                    <select id="statusFilter" class="filter-select">
-                        <option value="">Todos os Status</option>
-                        <option value="active">Ativo</option>
-                        <option value="completed">Finalizado</option>
-                        <option value="expired">Expirado</option>
-                    </select>
-                </div>
-                <div class="history-table-container">
-                    <table class="history-table" id="historyTable">
-                        <thead>
-                            <tr>
-                                <th>Cadeira</th>
-                                <th>Código</th>
-                                <th>Status</th>
-                                <th>Início</th>
-                                <th>Fim</th>
-                                <th>Duração</th>
-                                <th>IP</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody">
-                            <!-- Dados serão preenchidos dinamicamente -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <!-- Notificações -->
-    <div id="notifications" class="notifications"></div>
-
-    <!-- Modal de Confirmação -->
-    <div id="confirmModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 id="modalTitle">Confirmar Ação</h3>
-            <p id="modalMessage">Tem certeza que deseja continuar?</p>
-            <div class="modal-actions">
-                <button id="modalCancel" class="btn btn-secondary">Cancelar</button>
-                <button id="modalConfirm" class="btn btn-danger">Confirmar</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/dashboard.js"></script>
-</body>
+        <script src="js/dashboard.js"></script>
+    </body>
 </html>

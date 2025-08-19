@@ -371,7 +371,6 @@ async function startServer() {
         console.log(`Servidor rodando na porta ${PORT}`);
         console.log(`Interface do usuário: http://localhost:${PORT}`);
         console.log(`Dashboard administrativo: http://localhost:${PORT}/dashboard`);
-        console.log(`Para gerar QR codes: Abra utils/qr-generator.html`);
         console.log('');
         console.log('✅ Sistema pronto para uso!');
     });
