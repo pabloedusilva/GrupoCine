@@ -41,16 +41,16 @@ app.get('/api/seats', async (req, res) => {
                 s.seat_number,
                 s.is_vip,
                 CASE 
-                    WHEN sc.id IS NOT NULL AND sc.is_active = 1 AND sc.expires_at > NOW() THEN 'purchased'
                     WHEN ss.id IS NOT NULL AND ss.status = 'active' THEN 'occupied'
+                    WHEN sc.id IS NOT NULL AND sc.is_active = 1 AND sc.is_used = 0 AND sc.expires_at > NOW() THEN 'purchased'
                     ELSE 'available'
                 END as status,
                 sc.unique_code,
                 sc.expires_at,
                 ss.accessed_at
             FROM seats s
-            LEFT JOIN seat_codes sc ON s.id = sc.seat_id AND sc.is_active = 1 AND sc.expires_at > NOW()
             LEFT JOIN seat_sessions ss ON s.id = ss.seat_id AND ss.status = 'active'
+            LEFT JOIN seat_codes sc ON s.id = sc.seat_id AND sc.is_active = 1 AND sc.is_used = 0 AND sc.expires_at > NOW()
             ORDER BY s.row_letter, s.seat_number
         `;
 

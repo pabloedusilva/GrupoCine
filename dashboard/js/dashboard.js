@@ -87,8 +87,8 @@ function populateSeatSelect() {
 // Obter texto do status
 function getStatusText(status) {
     switch(status) {
-        case 'available': return 'Disponível';
-        case 'purchased': return 'Comprada';
+        case 'available': return 'Aguarando validação';
+        case 'purchased': return 'Aguarando validação';
         case 'occupied': return 'Ocupada';
         default: return 'Desconhecido';
     }
