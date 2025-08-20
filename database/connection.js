@@ -6,7 +6,7 @@ const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_DATABASE || 'cinema_seats',
+    database: process.env.DB_NAME || 'cinema_seats',
     port: process.env.DB_PORT || 3306,
     timezone: '+00:00',
     waitForConnections: true,
