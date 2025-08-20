@@ -100,6 +100,46 @@ body {
     font-size: 1.4rem;
     border-bottom: 2px solid rgba(255, 107, 107, 0.3);
     padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Ícones */
+.icon {
+    font-style: normal;
+    font-size: 1.3em;
+    background: linear-gradient(135deg, #ff6b6b, #ffa3a3, #ffcccc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+    filter: drop-shadow(0 3px 6px rgba(255, 107, 107, 0.3));
+    display: inline-block;
+    transform: scale(1);
+    transition: all 0.3s ease;
+    margin-right: 2px;
+}
+
+.icon:hover {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(255, 107, 107, 0.5));
+    text-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
+}
+
+.panel:hover .icon {
+    animation: iconGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes iconGlow {
+    from {
+        filter: drop-shadow(0 3px 6px rgba(255, 107, 107, 0.3));
+        text-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+    }
+    to {
+        filter: drop-shadow(0 5px 10px rgba(255, 107, 107, 0.6));
+        text-shadow: 0 0 25px rgba(255, 107, 107, 0.8);
+    }
 }
 
 /* Code Management */
