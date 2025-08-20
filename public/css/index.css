@@ -186,12 +186,13 @@ h1 {
 }
 
 .seat.purchased {
-    background-color: #ffa500;
-    color: #000;
+    /* Exibir como disponível (sem laranja) */
+    background-color: #444;
+    color: #ccc;
 }
 
 .seat.occupied {
-    background-color: #4CAF50;
+    background-color: #e53935; /* vermelho */
     color: #fff;
 }
 
@@ -206,12 +207,13 @@ h1 {
 }
 
 .seat.vip.purchased {
-    background-color: #8b66ff;
+    /* Exibir como VIP disponível (sem laranja) */
+    background-color: #6a4cff;
     color: #fff;
 }
 
 .seat.vip.occupied {
-    background-color: #4CAF50;
+    background-color: #e53935; /* vermelho */
     color: #fff;
 }
 
@@ -256,7 +258,7 @@ h1 {
 }
 
 .occupied-info {
-    background-color: #4CAF50;
+    background-color: #e53935; /* vermelho */
 }
 
 .vip-info {
