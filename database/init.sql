@@ -59,11 +59,3 @@ INSERT INTO seats (seat_code, row_letter, seat_number, is_vip) VALUES
 -- Fileira E
 ('E1', 'E', 1, FALSE), ('E2', 'E', 2, FALSE), ('E3', 'E', 3, FALSE), ('E4', 'E', 4, FALSE), ('E5', 'E', 5, FALSE),
 ('E6', 'E', 6, FALSE), ('E7', 'E', 7, FALSE), ('E8', 'E', 8, FALSE), ('E9', 'E', 9, FALSE), ('E10', 'E', 10, FALSE);
-
--- Inserir alguns códigos de exemplo para teste
-INSERT INTO seat_codes (seat_id, unique_code, expires_at) VALUES
-(1, 'Ax9P2', DATE_ADD(NOW(), INTERVAL 2 HOUR)),
-(2, 'Bm5Q8', DATE_ADD(NOW(), INTERVAL 2 HOUR)),
-(3, 'Cn7R1', DATE_ADD(NOW(), INTERVAL 2 HOUR)),
-(15, 'Dt3S9', DATE_ADD(NOW(), INTERVAL 2 HOUR)),
-(25, 'Ef6T4', DATE_ADD(NOW(), INTERVAL 2 HOUR));

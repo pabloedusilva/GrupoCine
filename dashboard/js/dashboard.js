@@ -4,7 +4,6 @@ const socket = io();
 let seats = [];
 let activeCodes = [];
 let activityLog = [];
-let sessionStart = new Date();
 
 // Elementos DOM
 const totalSeatsEl = document.getElementById('totalSeats');
@@ -20,9 +19,6 @@ const codeExpiryEl = document.getElementById('codeExpiry');
 const adminSeatingArea = document.getElementById('adminSeatingArea');
 const activityList = document.getElementById('activityList');
 const activeCodesList = document.getElementById('activeCodesList');
-const occupancyRateEl = document.getElementById('occupancyRate');
-const usedCodesEl = document.getElementById('usedCodes');
-const sessionStartEl = document.getElementById('sessionStart');
 const historyTableBody = document.getElementById('historyTableBody');
 const searchHistoryInput = document.getElementById('searchHistory');
 const statusFilter = document.getElementById('statusFilter');
@@ -32,7 +28,6 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.emit('joinDashboard');
     loadDashboardData();
     setupEventListeners();
-    updateSessionInfo();
     
     // Atualizar dados periodicamente
     setInterval(loadDashboardData, 30000); // A cada 30 segundos
@@ -44,10 +39,6 @@ function setupEventListeners() {
     generateCodeBtn.addEventListener('click', generateCode);
     searchHistoryInput.addEventListener('input', filterHistory);
     statusFilter.addEventListener('change', filterHistory);
-    
-    // Modal event listeners
-    document.getElementById('modalCancel').addEventListener('click', closeModal);
-    document.getElementById('modalConfirm').addEventListener('click', confirmAction);
 }
 
 // Carregar dados do dashboard
@@ -79,14 +70,6 @@ function updateStats() {
     occupiedSeatsEl.textContent = occupiedSeats;
     purchasedSeatsEl.textContent = purchasedSeats;
     availableSeatsEl.textContent = availableSeats;
-    
-    // Taxa de ocupação
-    const occupancyRate = totalSeats > 0 ? ((occupiedSeats / totalSeats) * 100).toFixed(1) : 0;
-    occupancyRateEl.textContent = `${occupancyRate}%`;
-    
-    // Códigos usados
-    const usedCodes = seats.filter(s => s.status === 'occupied').length;
-    usedCodesEl.textContent = usedCodes;
 }
 
 // Preencher select de cadeiras
@@ -319,21 +302,16 @@ function renderActivityFeed() {
 // Carregar histórico
 async function loadHistory() {
     try {
-        // Para este exemplo, vamos buscar o histórico das últimas sessões
-        const historyData = seats.filter(s => s.accessed_at).map(s => ({
-            seat_code: s.seat_code,
-            unique_code: s.unique_code || 'N/A',
-            status: s.status,
-            accessed_at: s.accessed_at,
-            session_end: null,
-            duration_minutes: 0,
-            user_ip: '127.0.0.1'
-        }));
+        // Buscar histórico real do servidor
+        const response = await fetch('/api/seat-history');
+        const historyData = await response.json();
         
         renderHistory(historyData);
         
     } catch (error) {
         console.error('Erro ao carregar histórico:', error);
+        // Se não conseguir carregar do servidor, mostrar tabela vazia
+        renderHistory([]);
     }
 }
 
@@ -378,106 +356,6 @@ function filterHistory() {
         
         row.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
-}
-
-// Atualizar informações da sessão
-function updateSessionInfo() {
-    sessionStartEl.textContent = sessionStart.toLocaleTimeString();
-}
-
-// Exportar relatório
-function exportReport() {
-    const reportData = {
-        timestamp: new Date().toISOString(),
-        summary: {
-            totalSeats: seats.length,
-            occupiedSeats: seats.filter(s => s.status === 'occupied').length,
-            purchasedSeats: seats.filter(s => s.status === 'purchased').length,
-            availableSeats: seats.filter(s => s.status === 'available').length,
-            occupancyRate: ((seats.filter(s => s.status === 'occupied').length / seats.length) * 100).toFixed(1)
-        },
-        seats: seats,
-        activeCodes: activeCodes,
-        activityLog: activityLog
-    };
-    
-    const dataStr = JSON.stringify(reportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `cinema-report-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    
-    showNotification('Relatório exportado com sucesso!', 'success');
-}
-
-// Limpar histórico
-function clearHistory() {
-    showConfirmModal(
-        'Limpar Histórico',
-        'Tem certeza que deseja limpar todo o histórico de atividades?',
-        () => {
-            activityLog = [];
-            renderActivityFeed();
-            showNotification('Histórico limpo com sucesso!', 'success');
-        }
-    );
-}
-
-// Finalizar todas as sessões
-function endAllSessions() {
-    showConfirmModal(
-        'Finalizar Todas as Sessões',
-        'Tem certeza que deseja finalizar todas as sessões ativas? Esta ação não pode ser desfeita.',
-        async () => {
-            try {
-                const activeSessions = seats.filter(s => s.status === 'occupied');
-                
-                for (const seat of activeSessions) {
-                    await fetch('/api/end-session', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ seatCode: seat.seat_code })
-                    });
-                }
-                
-                loadDashboardData();
-                showNotification(`${activeSessions.length} sessões finalizadas com sucesso!`, 'success');
-                
-            } catch (error) {
-                console.error('Erro ao finalizar sessões:', error);
-                showNotification('Erro ao finalizar sessões', 'error');
-            }
-        }
-    );
-}
-
-// Mostrar modal de confirmação
-function showConfirmModal(title, message, onConfirm) {
-    document.getElementById('modalTitle').textContent = title;
-    document.getElementById('modalMessage').textContent = message;
-    document.getElementById('confirmModal').style.display = 'flex';
-    
-    // Armazenar callback
-    window.currentConfirmAction = onConfirm;
-}
-
-// Fechar modal
-function closeModal() {
-    document.getElementById('confirmModal').style.display = 'none';
-    window.currentConfirmAction = null;
-}
-
-// Confirmar ação
-function confirmAction() {
-    if (window.currentConfirmAction) {
-        window.currentConfirmAction();
-        window.currentConfirmAction = null;
-    }
-    closeModal();
 }
 
 // Mostrar notificação

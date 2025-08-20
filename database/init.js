@@ -138,37 +138,17 @@ async function insertInitialData(connection) {
         
         console.log('✅ 50 assentos inseridos (A1-E10)');
         
-        // Gerar códigos iniciais para alguns assentos (exemplo)
-        const [seats] = await connection.query('SELECT id, seat_code FROM seats LIMIT 5');
-        
-        for (const seat of seats) {
-            const uniqueCode = generateSampleCode();
-            const expiresAt = new Date();
-            expiresAt.setHours(expiresAt.getHours() + 2);
-            
-            await connection.execute(
-                'INSERT INTO seat_codes (seat_id, unique_code, expires_at) VALUES (?, ?, ?)',
-                [seat.id, uniqueCode, expiresAt]
-            );
-        }
-        
-        console.log('✅ Códigos de exemplo criados para 5 assentos');
-        
     } catch (error) {
         console.error('❌ Erro ao inserir dados iniciais:', error.message);
         throw error;
     }
 }
 
-function generateSampleCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 5; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
-
 module.exports = {
     initializeDatabase
 };
+
+// Executar se for chamado diretamente
+if (require.main === module) {
+    initializeDatabase();
+}
