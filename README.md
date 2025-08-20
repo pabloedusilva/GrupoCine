@@ -1,234 +1,147 @@
-# 🎬 CineMax - Sistema de Gerenciamento de Assentos com QR Code
+# 🎬 GrupoCine — Sistema de Gerenciamento de Assentos com QR Code
 
-Sistema completo para gerenciamento de assentos de cinema com validação por QR Code e códigos únicos.
+Sistema completo para gerenciamento de assentos de cinema com geração/validação de códigos únicos (QR/alfanuméricos), atualização em tempo real via WebSocket e painel administrativo para controle e monitoramento.
 
-## 📋 Recursos
+## Visão Geral
 
-- **Scanner QR Code**: Interface para escanear QR codes das cadeiras
-- **Códigos Únicos**: Sistema de validação com códigos alfanuméricos de 5 caracteres
-- **Dashboard Administrativo**: Controle completo das cadeiras em tempo real
-- **Atualizações em Tempo Real**: WebSocket para sincronização instantânea
-- **Banco de Dados MySQL**: Armazenamento seguro de dados
-- **Histórico Completo**: Rastreamento de todas as atividades
-- **Relatórios**: Exportação de dados e estatísticas
+- Usuários acessam a página pública e validam o código do ingresso para ocupar uma cadeira.
+- Administradores acessam o Dashboard para gerar códigos por cadeira e acompanhar a ocupação em tempo real.
+- Estados visualizados no mapa de assentos (UI):
+	- Aguarando validação (cinza)
+	- Ocupada (vermelho)
+	- VIP (fileira A destacada)
 
-## 🚀 Instalação
+Observação: Internamente existe o estado lógico “purchased” (quando um código foi gerado e ainda não usado), mas visualmente ele aparece como “Aguarando validação” (cinza) tanto no site público quanto no dashboard.
 
-### 1. Pré-requisitos
+## Tecnologias
 
-- **Node.js** (versão 16 ou superior)
-- **MySQL** (versão 8.0 ou superior)
-- **Navegador moderno** com suporte à câmera
+- Node.js + Express (API e servidor estático)
+- Socket.IO (tempo real)
+- MySQL (persistência)
+- mysql2/promise (pool de conexões)
+- Front-end em HTML/CSS/JavaScript puro (páginas públicas e dashboard)
 
-### 2. Configuração do Banco de Dados
+## Requisitos
 
-1. **Instale e configure o MySQL**
-2. **Crie o banco de dados**:
-   ```sql
-   CREATE DATABASE cinema_seats;
-   ```
-3. **Execute o script de inicialização**:
-   ```bash
-   mysql -u root -p cinema_seats < database/init.sql
-   ```
+- Node.js 16+ (recomendado 18+)
+- MySQL 8+ (ou compatível)
 
-### 3. Configuração do Projeto
+## Instalação e Setup
 
-1. **Clone ou extraia o projeto**
-2. **Instale as dependências**:
-   ```bash
-   npm install
-   ```
-3. **Configure as variáveis de ambiente**:
-   - Edite o arquivo `.env` com suas configurações:
-   ```env
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=sua_senha_mysql
-   DB_DATABASE=cinema_seats
-   DB_PORT=3306
-   PORT=3000
-   SESSION_TIMEOUT_MINUTES=120
-   CODE_EXPIRY_HOURS=2
-   ```
+1) Clonar o repositório e instalar dependências
 
-### 4. Iniciando o Sistema
+```powershell
+cd d:\Pablo\GrupoCine
+npm install
+```
 
-```bash
+2) Configure o arquivo `.env` na raiz do projeto:
+
+```env
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=1234
+DB_DATABASE=cinema_seats
+DB_PORT=3306
+
+# Opções
+CODE_EXPIRY_HOURS=2            # Validade (horas) do código gerado
+# SESSION_TIMEOUT_MINUTES=120   # (Opcional) Tempo de sessão ativa
+```
+
+Notas:
+- A aplicação utiliza `DB_DATABASE`. Se você já usa `DB_NAME`, o sistema faz fallback para `cinema_seats`, mas prefira `DB_DATABASE` para evitar ambiguidade.
+- O servidor inicializa e garante a estrutura do banco (tabelas) automaticamente se ainda não existir.
+
+3) Executar o servidor
+
+Ambiente de desenvolvimento (com reload, se usar nodemon):
+
+```powershell
+npm run dev
+```
+
+Produção/local simples:
+
+```powershell
 npm start
 ```
 
-O sistema estará disponível em:
-- **Interface do Usuário**: http://localhost:3000
-- **Dashboard Administrativo**: http://localhost:3000/dashboard
+Aplicações:
+- Público: http://localhost:3000
+- Dashboard: http://localhost:3000/dashboard
 
-## 📱 Como Usar
+## Estrutura de Pastas
 
-### Interface do Usuário (Público)
-
-1. **Acesse** http://localhost:3000
-2. **Permita o acesso à câmera** quando solicitado
-3. **Escaneie o QR Code** da cadeira desejada
-4. **Digite o código único** de 5 caracteres fornecido no seu ingresso
-5. **Aguarde a validação** - se correto, a cadeira será liberada
-
-### Dashboard Administrativo
-
-1. **Acesse** http://localhost:3000/dashboard
-2. **Monitore em tempo real**:
-   - Status de todas as cadeiras
-   - Códigos ativos
-   - Atividades recentes
-3. **Gere códigos únicos** para cadeiras específicas
-4. **Visualize relatórios** e histórico completo
-5. **Exporte dados** quando necessário
-
-## 🎭 Sistema de Status das Cadeiras
-
-- **🟤 Disponível**: Cadeira livre para uso
-- **🟠 Comprada**: Código gerado, aguardando validação
-- **🟢 Ocupada**: Código validado, cadeira em uso
-- **🟣 VIP**: Cadeiras especiais (fileira A)
-
-## 🔐 Segurança
-
-### Códigos Únicos
-- **5 caracteres alfanuméricos** (maiúsculas, minúsculas e números)
-- **Expiração automática** após 2 horas (configurável)
-- **Uso único** - não pode ser reutilizado
-- **Geração aleatória** garantindo unicidade
-
-### Validações
-- Verificação de cadeira válida
-- Confirmação de código não expirado
-- Bloqueio de códigos já utilizados
-- Log de todas as tentativas
-
-## 🗄️ Estrutura do Banco de Dados
-
-### Tabela `seats`
-- Informações das cadeiras (A1-E10)
-- Identificação VIP
-- Timestamps de criação/atualização
-
-### Tabela `seat_codes`
-- Códigos únicos ativos
-- Data de expiração
-- Status de uso
-
-### Tabela `seat_sessions`
-- Histórico de sessões
-- Duração de uso
-- IPs dos usuários
-
-## 🛠️ API Endpoints
-
-### GET `/api/seats`
-Retorna status de todas as cadeiras
-
-### POST `/api/validate-seat`
-Valida código da cadeira
-```json
-{
-  "seatCode": "A1",
-  "uniqueCode": "Ax9P2",
-  "userIP": "192.168.1.100"
-}
+```
+package.json
+server.js
+database/
+	connection.js      # Pool MySQL + helpers (queries e geração de códigos)
+	init.js            # Criação do schema e dados iniciais (A1–E10)
+	init.sql           # Script SQL (referência)
+public/
+	index.html         # Página pública (validação de cadeiras)
+	css/index.css      # Estilos do site público
+	js/index.js        # Lógica do site público (fetch + WebSocket)
+dashboard/
+	dashboard.html     # Painel administrativo
+	css/dashboard.css  # Estilos do dashboard
+	js/dashboard.js    # Lógica do dashboard (fetch + WebSocket)
 ```
 
-### POST `/api/generate-code`
-Gera novo código para cadeira
-```json
-{
-  "seatCode": "A1"
-}
-```
+## Estados das Cadeiras (UI)
 
-### POST `/api/end-session`
-Finaliza sessão ativa
-```json
-{
-  "seatCode": "A1"
-}
-```
+- Aguarando validação (cinza): cadeira com código ativo aguardando ser validado OU sem código.
+- Ocupada (vermelho): código validado; cadeira em uso; persiste no banco até ser liberada.
+- VIP: marcação visual para cadeiras especiais (ex.: A1–A5).
 
-### GET `/api/seat-history/:seatCode`
-Retorna histórico de uma cadeira específica
+Regra de negócio resumida:
+- Gerar código (dashboard) cria um código único e ativo para a cadeira (internamente “purchased”).
+- Validar código (página pública) marca o código como usado e cria uma sessão ativa para a cadeira (estado “occupied”).
+- Finalizar sessão (endpoint) libera a cadeira (volta a “aguardando validação”).
 
-## 🔧 Personalização
+## API
 
-### Códigos de Expiração
-Altere no arquivo `.env`:
-```env
-CODE_EXPIRY_HOURS=2  # Códigos expiram em 2 horas
-```
+Base URL: `http://localhost:3000`
 
-### Timeout de Sessão
-```env
-SESSION_TIMEOUT_MINUTES=120  # Sessões duram 2 horas
-```
+- GET `/api/seats` — Lista todas as cadeiras com status e metadados relevantes.
+- POST `/api/validate-seat` — Valida o código informado e ocupa a cadeira.
+	- Body JSON: `{ "seatCode": "A1", "uniqueCode": "ABCDE", "userIP": "opcional" }`
+- POST `/api/generate-code` — Gera um novo código para uma cadeira.
+	- Body JSON: `{ "seatCode": "A1" }`
+- POST `/api/end-session` — Finaliza a sessão ativa da cadeira e libera o assento.
+	- Body JSON: `{ "seatCode": "A1" }`
+- GET `/api/seat-history/:seatCode` — Retorna histórico de uso da cadeira.
 
-### Layout do Cinema
-Modifique no arquivo `database/init.sql` para adicionar/remover cadeiras
+Retornos de erro seguem o padrão `{ success: false, message: "..." }` e HTTP adequados (400/404/500).
 
-## 📊 Monitoramento
+## Tempo Real (WebSocket)
 
-### Logs do Sistema
-- Todas as atividades são registradas
-- Console do servidor mostra eventos em tempo real
-- Dashboard exibe feed de atividades
+Eventos emitidos pelo servidor (Socket.IO):
+- `seatStatusUpdate` — `{ seatCode, status, timestamp }` quando uma cadeira é ocupada/liberada.
+- `newCodeGenerated` — `{ seatCode, uniqueCode, expiresAt }` ao gerar novo código.
 
-### Métricas Disponíveis
-- Taxa de ocupação
-- Códigos ativos/usados
-- Duração média das sessões
-- Histórico completo de uso
+O front-end escuta esses eventos para espelhar o estado em tempo real no site público e no dashboard.
 
-## 🚨 Solução de Problemas
+## Banco de Dados
 
-### Erro de Conexão com MySQL
-1. Verifique se o MySQL está rodando
-2. Confirme as credenciais no arquivo `.env`
-3. Teste a conexão manualmente
+Tabelas principais:
+- `seats` — cadeiras (A1–E10), VIP, etc.
+- `seat_codes` — códigos únicos por cadeira; flags `is_active`, `is_used` e `expires_at`.
+- `seat_sessions` — sessões de uso (histórico), com status `active/completed/expired`.
 
-### Câmera não funciona
-1. Verifique permissões do navegador
-2. Use HTTPS em produção
-3. Teste em navegador diferente
+Chaves do fluxo:
+- Ao validar um código: `seat_codes.is_used = 1` e cria-se uma linha em `seat_sessions` com `status = 'active'`.
+- O status “occupied” é derivado da existência de sessão ativa; “purchased” é derivado de código ativo não usado (na UI aparece como “Aguarando validação”).
 
-### Códigos não validam
-1. Verifique se não expiraram
-2. Confirme se não foram usados anteriormente
-3. Verifique logs do servidor
+## Desenvolvimento
 
-## 📈 Produção
+- Scripts:
+	- `npm run dev` — execução em desenvolvimento (requer nodemon instalado globalmente ou ajuste).
+	- `npm start` — execução simples com Node.
+- Principais libs: `express`, `socket.io`, `mysql2`, `dotenv`, `cors`.
 
-### Configurações Recomendadas
-- Use HTTPS para câmera funcionar
-- Configure backup automático do banco
-- Monitore logs de erro
-- Implemente rate limiting
-- Configure firewall adequadamente
+## Licença
 
-### Variáveis de Ambiente para Produção
-```env
-NODE_ENV=production
-DB_HOST=seu_host_mysql
-DB_PASSWORD=senha_forte
-PORT=80
-```
-
-## 🤝 Suporte
-
-Para dúvidas ou problemas:
-1. Verifique os logs do console
-2. Confirme configurações do banco
-3. Teste em ambiente local primeiro
-
-## 📄 Licença
-
-Este projeto é fornecido como exemplo educacional. Adapte conforme necessário para uso comercial.
-
----
-
-**Desenvolvido para demonstrar integração de QR Code, WebSocket e MySQL em aplicação Node.js**
+Este projeto é disponibilizado nos termos especificados pelo autor do repositório.
