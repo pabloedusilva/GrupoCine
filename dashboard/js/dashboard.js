@@ -302,21 +302,16 @@ function renderActivityFeed() {
 // Carregar histórico
 async function loadHistory() {
     try {
-        // Para este exemplo, vamos buscar o histórico das últimas sessões
-        const historyData = seats.filter(s => s.accessed_at).map(s => ({
-            seat_code: s.seat_code,
-            unique_code: s.unique_code || 'N/A',
-            status: s.status,
-            accessed_at: s.accessed_at,
-            session_end: null,
-            duration_minutes: 0,
-            user_ip: '127.0.0.1'
-        }));
+        // Buscar histórico real do servidor
+        const response = await fetch('/api/seat-history');
+        const historyData = await response.json();
         
         renderHistory(historyData);
         
     } catch (error) {
         console.error('Erro ao carregar histórico:', error);
+        // Se não conseguir carregar do servidor, mostrar tabela vazia
+        renderHistory([]);
     }
 }
 
