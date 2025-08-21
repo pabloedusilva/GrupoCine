@@ -109,16 +109,21 @@ body {
 .icon {
     font-style: normal;
     font-size: 1.3em;
-    background: linear-gradient(135deg, #ff6b6b, #ffa3a3, #ffcccc);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    text-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
-    filter: drop-shadow(0 3px 6px rgba(255, 107, 107, 0.3));
     display: inline-block;
-    transform: scale(1);
-    transition: all 0.3s ease;
-    margin-right: 2px;
+    margin-right: 6px;
+    color: #ff6b6b;
+    text-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+    transition: transform 0.2s ease, text-shadow 0.2s ease;
+}
+
+/* Material Symbols tweaks */
+.material-symbols-rounded.icon {
+    font-variation-settings:
+        'FILL' 1,
+        'wght' 600,
+        'GRAD' 0,
+        'opsz' 24;
+    line-height: 1;
 }
 
 .icon:hover {

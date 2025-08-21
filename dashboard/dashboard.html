@@ -5,7 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>GrupoCine - Dashboard Administrativo</title>
         <script src="/socket.io/socket.io.js"></script>
-        <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,600,1,0" />
     </head>
     <body>
         <header class="header">
@@ -36,7 +37,7 @@
             <div class="dashboard-grid">
                 <!-- Controle de Códigos -->
                 <section class="panel code-management">
-                    <h2><i class="icon">⚷</i> Geração de Códigos</h2>
+                    <h2><span class="material-symbols-rounded icon">key</span> Geração de Códigos</h2>
                     <div class="code-form">
                         <select id="seatSelect" class="seat-select">
                             <option value>Selecione uma cadeira</option>
@@ -63,7 +64,7 @@
 
                 <!-- Mapa de Assentos -->
                 <section class="panel seat-map">
-                    <h2><i class="icon">◉</i> Mapa de Assentos</h2>
+                    <h2><span class="material-symbols-rounded icon">map</span> Mapa de Assentos</h2>
                     <div class="cinema-container">
                         <div class="screen">TELA</div>
                         <div class="seating-area" id="adminSeatingArea">
@@ -74,7 +75,7 @@
 
                 <!-- Atividade em Tempo Real -->
                 <section class="panel activity-feed">
-                    <h2><i class="icon">◈</i> Atividade em Tempo Real</h2>
+                    <h2><span class="material-symbols-rounded icon">monitoring</span> Atividade em Tempo Real</h2>
                     <div class="activity-list" id="activityList">
                         <!-- Atividades serão adicionadas dinamicamente -->
                     </div>
@@ -82,7 +83,7 @@
 
                 <!-- Códigos Ativos -->
                 <section class="panel active-codes">
-                    <h2><i class="icon">◆</i> Códigos Ativos</h2>
+                    <h2><span class="material-symbols-rounded icon">confirmation_number</span> Códigos Ativos</h2>
                     <div class="codes-list" id="activeCodesList">
                         <!-- Códigos ativos serão listados aqui -->
                     </div>
@@ -90,7 +91,7 @@
 
                 <!-- Histórico Detalhado -->
                 <section class="panel history">
-                    <h2><i class="icon">◎</i> Histórico Detalhado</h2>
+                    <h2><span class="material-symbols-rounded icon">history</span> Histórico Detalhado</h2>
                     <div class="history-controls">
                         <input type="text" id="searchHistory"
                             placeholder="Buscar por cadeira..."
