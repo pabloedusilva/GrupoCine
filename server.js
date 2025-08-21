@@ -317,6 +317,53 @@ app.get('/api/seat-history/:seatCode', async (req, res) => {
     }
 });
 
+// Finalizar sessão completa - limpar todas as tabelas
+app.post('/api/finish-session', async (req, res) => {
+    try {
+        console.log('Iniciando limpeza completa do sistema...');
+
+        // Finalizar todas as sessões ativas
+        await executeQuery(`
+            UPDATE seat_sessions 
+            SET status = 'ended', session_end = NOW() 
+            WHERE status = 'active'
+        `);
+
+        // Desativar todos os códigos ativos
+        await executeQuery(`
+            UPDATE seat_codes 
+            SET is_active = 0 
+            WHERE is_active = 1
+        `);
+
+        // Limpar tabela de sessões (opcional - manter histórico comentado)
+        // await executeQuery('DELETE FROM seat_sessions');
+        
+        // Limpar tabela de códigos (opcional - manter histórico comentado)
+        // await executeQuery('DELETE FROM seat_codes');
+
+        console.log('✅ Limpeza completa realizada com sucesso');
+
+        // Emitir evento para todos os clientes conectados
+        io.emit('sessionFinished', {
+            message: 'Sessão finalizada pelo administrador',
+            timestamp: new Date()
+        });
+
+        res.json({
+            success: true,
+            message: 'Sessão finalizada com sucesso. Todas as cadeiras foram liberadas.'
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao finalizar sessão:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno do servidor ao finalizar sessão'
+        });
+    }
+});
+
 // WebSocket connections
 io.on('connection', (socket) => {
     console.log('Cliente conectado:', socket.id);
