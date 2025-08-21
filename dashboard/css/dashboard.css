@@ -537,18 +537,18 @@ body {
 }
 
 .admin-seat.available {
-    background-color: #444;
-    color: #ccc;
+    background-color: #e57373; /* vermelho suave */
+    color: #fff;
 }
 
 .admin-seat.purchased {
-    /* Exibir como disponível (sem laranja) */
-    background-color: #444;
-    color: #ccc;
+    /* Exibir como aguardando validação (vermelho suave) */
+    background-color: #e57373; /* vermelho suave */
+    color: #fff;
 }
 
 .admin-seat.occupied {
-    background-color: #e53935; /* vermelho */
+    background-color: #4CAF50; /* verde */
     color: #fff;
 }
 
