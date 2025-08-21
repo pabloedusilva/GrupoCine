@@ -19,9 +19,6 @@ const codeExpiryEl = document.getElementById('codeExpiry');
 const adminSeatingArea = document.getElementById('adminSeatingArea');
 const activityList = document.getElementById('activityList');
 const activeCodesList = document.getElementById('activeCodesList');
-const historyTableBody = document.getElementById('historyTableBody');
-const searchHistoryInput = document.getElementById('searchHistory');
-const statusFilter = document.getElementById('statusFilter');
 
 // Inicializar dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -37,8 +34,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Configurar event listeners
 function setupEventListeners() {
     generateCodeBtn.addEventListener('click', generateCode);
-    searchHistoryInput.addEventListener('input', filterHistory);
-    statusFilter.addEventListener('change', filterHistory);
 }
 
 // Carregar dados do dashboard
@@ -51,7 +46,6 @@ async function loadDashboardData() {
         renderAdminSeats();
         updateStats();
         loadActiveCodes();
-        loadHistory();
         
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -296,65 +290,6 @@ function renderActivityFeed() {
         `;
         
         activityList.appendChild(activityDiv);
-    });
-}
-
-// Carregar histórico
-async function loadHistory() {
-    try {
-        // Buscar histórico real do servidor
-        const response = await fetch('/api/seat-history');
-        const historyData = await response.json();
-        
-        renderHistory(historyData);
-        
-    } catch (error) {
-        console.error('Erro ao carregar histórico:', error);
-        // Se não conseguir carregar do servidor, mostrar tabela vazia
-        renderHistory([]);
-    }
-}
-
-// Renderizar histórico
-function renderHistory(data) {
-    historyTableBody.innerHTML = '';
-    
-    data.forEach(session => {
-        const row = document.createElement('tr');
-        
-        const startTime = session.accessed_at ? new Date(session.accessed_at).toLocaleString() : 'N/A';
-        const endTime = session.session_end ? new Date(session.session_end).toLocaleString() : '-';
-        const duration = session.duration_minutes ? `${session.duration_minutes} min` : '-';
-        
-        row.innerHTML = `
-            <td>${session.seat_code}</td>
-            <td style="font-family: monospace;">${session.unique_code}</td>
-            <td><span class="status-badge status-${session.status}">${session.status}</span></td>
-            <td>${startTime}</td>
-            <td>${endTime}</td>
-            <td>${duration}</td>
-            <td>${session.user_ip}</td>
-        `;
-        
-        historyTableBody.appendChild(row);
-    });
-}
-
-// Filtrar histórico
-function filterHistory() {
-    const searchTerm = searchHistoryInput.value.toLowerCase();
-    const statusFilterValue = statusFilter.value;
-    
-    const rows = historyTableBody.querySelectorAll('tr');
-    
-    rows.forEach(row => {
-        const seatCode = row.cells[0].textContent.toLowerCase();
-        const status = row.cells[2].querySelector('.status-badge').textContent.toLowerCase();
-        
-        const matchesSearch = seatCode.includes(searchTerm);
-        const matchesStatus = !statusFilterValue || status === statusFilterValue;
-        
-        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
 }
 
