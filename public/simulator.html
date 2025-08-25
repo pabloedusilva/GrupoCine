@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Cadeiras - GrupoCine</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="css/simulator.css">
+</head>
+<body>
+    <header>
+        <h1>🎬 Simulador de Cadeiras</h1>
+        <p class="subtitle">Simule a detecção de pessoas sentando nas cadeiras</p>
+    </header>
+
+    <div class="main-container">
+        <!-- Mensagens de Status -->
+        <div id="statusMessage" class="status-message"></div>
+
+        <!-- Controles -->
+        <div class="controls-panel">
+            <h3>Controles de Simulação</h3>
+            <div class="control-group">
+                <label for="seatSelect">Selecionar Cadeira:</label>
+                <select id="seatSelect" class="input">
+                    <option value="">Carregando cadeiras...</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button id="pressButton" class="btn btn-orange" disabled>
+                    📍 Simular Pessoa Sentou
+                </button>
+                <button id="releaseButton" class="btn btn-gray" disabled>
+                    🚶 Simular Pessoa Levantou
+                </button>
+            </div>
+        </div>
+
+        <!-- Mapa de Cadeiras -->
+        <div class="screen">TELA</div>
+
+        <div class="seating-area" id="seatingArea">
+            <!-- As cadeiras serão geradas dinamicamente -->
+        </div>
+
+        <!-- Legenda -->
+        <div class="info-panel">
+            <div class="info-item">
+                <div class="info-seat available-info"></div>
+                <span>Aguardando validação</span>
+            </div>
+            <div class="info-item">
+                <div class="info-seat pending-info"></div>
+                <span>Pendente (Pessoa sentada)</span>
+            </div>
+            <div class="info-item">
+                <div class="info-seat occupied-info"></div>
+                <span>Ocupadas (Código validado)</span>
+            </div>
+            <div class="info-item">
+                <div class="info-seat vip-info"></div>
+                <span>VIP</span>
+            </div>
+        </div>
+
+        <!-- Status do Arduino -->
+        <div class="arduino-status">
+            <h3>Status da Conexão</h3>
+            <div class="status-indicator" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Verificando conexão...</span>
+            </div>
+        </div>
+    </div>
+
+    <nav class="navigation">
+        <a href="/" class="nav-link">🏠 Interface do Usuário</a>
+        <a href="/dashboard" class="nav-link">📊 Dashboard</a>
+    </nav>
+
+    <footer class="app-footer" role="contentinfo">
+        Simulador de Arduino - 
+        <a href="https://plataforma.gpinovacao.senai.br/plataforma/ideia/263775" target="_blank" rel="noopener noreferrer">LYS TEC. MOVIE</a>
+    </footer>
+
+    <script src="js/simulator.js"></script>
+</body>
+</html>

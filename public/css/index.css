@@ -210,6 +210,12 @@ h1 {
     background-color: #555;
 }
 
+.seat.pending {
+    background-color: #ff8800; /* laranja */
+    color: #fff;
+    animation: pulse 2s infinite;
+}
+
 .seat.purchased {
     /* Exibir como disponível (sem laranja) */
     background-color: #444;
@@ -231,6 +237,12 @@ h1 {
     color: #fff;
 }
 
+.seat.vip.pending {
+    background-color: #ff8800; /* laranja para VIP também */
+    color: #fff;
+    animation: pulse 2s infinite;
+}
+
 .seat.vip.purchased {
     /* Exibir como VIP disponível (sem laranja) */
     background-color: #6a4cff;
@@ -240,6 +252,18 @@ h1 {
 .seat.vip.occupied {
     background-color: #e53935; /* vermelho */
     color: #fff;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 136, 0, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 136, 0, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 136, 0, 0);
+    }
 }
 
 .info-panel {
@@ -276,6 +300,10 @@ h1 {
 
 .available-info {
     background-color: #444;
+}
+
+.pending-info {
+    background-color: #ff8800;
 }
 
 .purchased-info {

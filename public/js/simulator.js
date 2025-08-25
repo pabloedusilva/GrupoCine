@@ -1,108 +1,45 @@
 // Conectar ao WebSocket
 const socket = io();
 
-let currentSeatCode = null;
 let seats = [];
+let selectedSeat = null;
 
 // Elementos DOM
 const statusMessage = document.getElementById('statusMessage');
 const seatingArea = document.getElementById('seatingArea');
-// Modal
-const seatModal = document.getElementById('seatModal');
-const seatInfo = document.getElementById('seatInfo');
-const modalCodeInput = document.getElementById('modalCodeInput');
-const closeSeatModalBtn = document.getElementById('closeSeatModal');
-const cancelSeatModalBtn = document.getElementById('cancelSeatModal');
-const confirmSeatValidationBtn = document.getElementById('confirmSeatValidation');
+const seatSelect = document.getElementById('seatSelect');
+const pressButton = document.getElementById('pressButton');
+const releaseButton = document.getElementById('releaseButton');
+const connectionStatus = document.getElementById('connectionStatus');
 
 // Inicializar quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', function() {
     loadSeats();
-    setupGlobalListeners();
+    setupEventListeners();
+    setupSocketListeners();
+    updateConnectionStatus('simulated', 'Modo Simulação Ativo');
 });
 
-function setupGlobalListeners() {
-    // Fechar modal
-    closeSeatModalBtn.addEventListener('click', hideSeatModal);
-    cancelSeatModalBtn.addEventListener('click', hideSeatModal);
-    seatModal.addEventListener('click', (e) => {
-        if (e.target === seatModal) hideSeatModal();
+function setupEventListeners() {
+    // Selecionar cadeira
+    seatSelect.addEventListener('change', (e) => {
+        selectedSeat = e.target.value;
+        updateButtonStates();
+        highlightSelectedSeat();
     });
-    // Input sempre maiúsculo
-    modalCodeInput.addEventListener('input', (e) => {
-        e.target.value = e.target.value.toUpperCase();
-    });
-    modalCodeInput.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') {
-            confirmSeatValidation();
+
+    // Botões de simulação
+    pressButton.addEventListener('click', () => {
+        if (selectedSeat) {
+            simulateButton('PRESSED');
         }
     });
-    confirmSeatValidationBtn.addEventListener('click', confirmSeatValidation);
-}
 
-function showSeatModal(seatCode) {
-    currentSeatCode = seatCode;
-    seatInfo.textContent = `Cadeira: ${seatCode}`;
-    modalCodeInput.value = '';
-    seatModal.classList.add('active');
-    seatModal.setAttribute('aria-hidden', 'false');
-    setTimeout(() => modalCodeInput.focus(), 0);
-}
-
-function hideSeatModal() {
-    seatModal.classList.remove('active');
-    seatModal.setAttribute('aria-hidden', 'true');
-}
-
-async function confirmSeatValidation() {
-    const code = modalCodeInput.value.trim().toUpperCase();
-    if (!currentSeatCode || code.length !== 5) {
-        showMessage('Informe o código de 5 caracteres.', 'error');
-        return;
-    }
-    const previousHtml = confirmSeatValidationBtn.innerHTML;
-    confirmSeatValidationBtn.disabled = true;
-    confirmSeatValidationBtn.innerHTML = '<div class="loader"></div>';
-
-    try {
-        const response = await fetch('/api/validate-seat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seatCode: currentSeatCode, uniqueCode: code, userIP: null })
-        });
-        const result = await response.json();
-        if (result.success) {
-            showMessage(`✅ ${result.message}`, 'success');
-            updateSeatVisual(currentSeatCode, 'occupied');
-            // Atualizar dados locais
-            const seatIndex = seats.findIndex(s => s.seat_code === currentSeatCode);
-            if (seatIndex !== -1) seats[seatIndex].status = 'occupied';
-            hideSeatModal();
-        } else {
-            showMessage(`❌ ${result.message}`, 'error');
-            modalCodeInput.focus();
-            modalCodeInput.select();
+    releaseButton.addEventListener('click', () => {
+        if (selectedSeat) {
+            simulateButton('RELEASED');
         }
-    } catch (err) {
-        console.error('Erro ao validar código:', err);
-        showMessage('Erro de conexão. Tente novamente.', 'error');
-    } finally {
-        confirmSeatValidationBtn.disabled = false;
-        confirmSeatValidationBtn.innerHTML = previousHtml || 'Validar';
-    }
-}
-
-// Carregar estado das cadeiras
-async function loadSeats() {
-    try {
-        const response = await fetch('/api/seats');
-        seats = await response.json();
-        renderSeats();
-        setupSocketListeners();
-    } catch (error) {
-        console.error('Erro ao carregar cadeiras:', error);
-        showMessage("Erro ao carregar informações das cadeiras.", "error");
-    }
+    });
 }
 
 function setupSocketListeners() {
@@ -128,6 +65,10 @@ function setupSocketListeners() {
         if (seatIndex !== -1) {
             seats[seatIndex].physical_status = data.physicalStatus;
         }
+
+        // Mostrar mensagem de feedback
+        const action = data.physicalStatus === 'pending' ? 'sentou' : 'levantou';
+        showMessage(`🎬 Simulação: Pessoa ${action} na cadeira ${data.seatCode}`, 'success');
     });
 
     // Sessão finalizada
@@ -138,17 +79,55 @@ function setupSocketListeners() {
             loadSeats();
         }, 1000);
     });
+
+    // Status de conexão
+    socket.on('connect', () => {
+        console.log('Conectado ao servidor');
+        updateConnectionStatus('simulated', 'Modo Simulação Ativo');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Desconectado do servidor');
+        updateConnectionStatus('disconnected', 'Desconectado do Servidor');
+    });
+}
+
+// Carregar estado das cadeiras
+async function loadSeats() {
+    try {
+        const response = await fetch('/api/seats');
+        seats = await response.json();
+        renderSeats();
+        populateSeatSelect();
+    } catch (error) {
+        console.error('Erro ao carregar cadeiras:', error);
+        showMessage("Erro ao carregar informações das cadeiras.", "error");
+    }
+}
+
+// Preencher select de cadeiras
+function populateSeatSelect() {
+    seatSelect.innerHTML = '<option value="">Selecione uma cadeira</option>';
+    
+    seats.forEach(seat => {
+        const option = document.createElement('option');
+        option.value = seat.seat_code;
+        option.textContent = `${seat.seat_code} ${seat.is_vip ? '(VIP)' : ''}`;
+        seatSelect.appendChild(option);
+    });
 }
 
 // Renderizar mapa de cadeiras
 function renderSeats() {
     seatingArea.innerHTML = '';
+    
     // Agrupar por fileira dinamicamente
     const rowsMap = new Map();
     seats.forEach(s => {
         if (!rowsMap.has(s.row_letter)) rowsMap.set(s.row_letter, []);
         rowsMap.get(s.row_letter).push(s);
     });
+    
     // Ordenar fileiras e assentos
     const rowLetters = Array.from(rowsMap.keys()).sort();
     rowLetters.forEach(rowLetter => {
@@ -172,12 +151,13 @@ function renderSeats() {
             const displayStatus = getDisplayStatus(seatData);
             seatDiv.classList.add(displayStatus);
             if (seatData.is_vip) seatDiv.classList.add('vip');
-            if (seatData.status === 'occupied') seatDiv.classList.add('disabled');
 
-            // Clique para abrir modal (exceto ocupada)
+            // Clique para selecionar cadeira
             seatDiv.addEventListener('click', () => {
-                if (seatData.status === 'occupied') return;
-                showSeatModal(seatCode);
+                seatSelect.value = seatCode;
+                selectedSeat = seatCode;
+                updateButtonStates();
+                highlightSelectedSeat();
             });
 
             rowDiv.appendChild(seatDiv);
@@ -247,9 +227,68 @@ function updateSeatPhysicalVisual(seatCode, physicalStatus) {
     }
 }
 
-// Resetar interface de scan
-function resetScanInterface() {
-    currentSeatCode = null;
+// Destacar cadeira selecionada
+function highlightSelectedSeat() {
+    // Remover destaque anterior
+    document.querySelectorAll('.seat').forEach(seat => {
+        seat.classList.remove('simulator-selected');
+    });
+    
+    // Adicionar destaque à cadeira selecionada
+    if (selectedSeat) {
+        const seatElement = document.querySelector(`[data-seat-code="${selectedSeat}"]`);
+        if (seatElement) {
+            seatElement.classList.add('simulator-selected');
+        }
+    }
+}
+
+// Atualizar estado dos botões
+function updateButtonStates() {
+    const hasSelection = selectedSeat !== null && selectedSeat !== '';
+    pressButton.disabled = !hasSelection;
+    releaseButton.disabled = !hasSelection;
+}
+
+// Simular pressionamento de botão
+async function simulateButton(action) {
+    if (!selectedSeat) return;
+    
+    try {
+        const response = await fetch('/api/simulate-button', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                seatCode: selectedSeat, 
+                action: action 
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const actionText = action === 'PRESSED' ? 'pressionamento' : 'liberação';
+            console.log(`✅ Simulação de ${actionText} enviada para ${selectedSeat}`);
+        } else {
+            showMessage(`❌ Erro na simulação: ${result.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao simular botão:', error);
+        showMessage('❌ Erro de conexão na simulação.', 'error');
+    }
+}
+
+// Atualizar status da conexão
+function updateConnectionStatus(status, text) {
+    const statusDot = connectionStatus.querySelector('.status-dot');
+    const statusText = connectionStatus.querySelector('.status-text');
+    
+    // Remover classes anteriores
+    statusDot.classList.remove('connected', 'disconnected', 'simulated');
+    
+    // Adicionar nova classe
+    statusDot.classList.add(status);
+    statusText.textContent = text;
 }
 
 // Mostrar mensagem de status
@@ -263,42 +302,3 @@ function showMessage(message, type) {
         statusMessage.style.display = 'none';
     }, 5000);
 }
-
-// WebSocket event listeners
-socket.on('connect', () => {
-    console.log('Conectado ao servidor');
-});
-
-socket.on('seatStatusUpdate', (data) => {
-    console.log('Atualização de status da cadeira:', data);
-    updateSeatVisual(data.seatCode, data.status);
-    
-    // Atualizar dados locais
-    const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
-    if (seatIndex !== -1) {
-        seats[seatIndex].status = data.status;
-    }
-});
-
-socket.on('newCodeGenerated', (data) => {
-    console.log('Novo código gerado:', data);
-    
-    // Atualizar status da cadeira para "purchased"
-    updateSeatVisual(data.seatCode, 'purchased');
-    
-    // Atualizar dados locais
-    const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
-    if (seatIndex !== -1) {
-        seats[seatIndex].status = 'purchased';
-        seats[seatIndex].unique_code = data.uniqueCode;
-        seats[seatIndex].expires_at = data.expiresAt;
-    }
-});
-
-socket.on('disconnect', () => {
-    console.log('Desconectado do servidor');
-    showMessage("Conexão perdida. Recarregue a página.", "error");
-});
-
-// Atualizar lista de cadeiras periodicamente
-setInterval(loadSeats, 30000); // A cada 30 segundos

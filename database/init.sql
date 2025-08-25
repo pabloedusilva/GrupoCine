@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS seat_codes (
     INDEX idx_expires_at (expires_at)
 );
 
+-- Tabela para status das cadeiras com Arduino
+CREATE TABLE IF NOT EXISTS seat_physical_status (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    seat_id INT NOT NULL,
+    physical_status ENUM('waiting', 'pending', 'occupied') DEFAULT 'waiting',
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (seat_id) REFERENCES seats(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_seat (seat_id)
+);
+
 -- Tabela de sessões/histórico
 CREATE TABLE IF NOT EXISTS seat_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -59,3 +69,7 @@ INSERT INTO seats (seat_code, row_letter, seat_number, is_vip) VALUES
 -- Fileira E
 ('E1', 'E', 1, FALSE), ('E2', 'E', 2, FALSE), ('E3', 'E', 3, FALSE), ('E4', 'E', 4, FALSE), ('E5', 'E', 5, FALSE),
 ('E6', 'E', 6, FALSE), ('E7', 'E', 7, FALSE), ('E8', 'E', 8, FALSE), ('E9', 'E', 9, FALSE), ('E10', 'E', 10, FALSE);
+
+-- Inserir status físico inicial para todas as cadeiras
+INSERT INTO seat_physical_status (seat_id, physical_status)
+SELECT id, 'waiting' FROM seats;

@@ -3,6 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const { SerialPort } = require('serialport');
+const { ReadlineParser } = require('@serialport/parser-readline');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { testConnection, executeQuery, generateUniqueCode } = require('./database/connection');
@@ -23,9 +25,121 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/dashboard', express.static('dashboard'));
 
+// Configuração do Arduino Serial
+let arduinoPort = null;
+let parser = null;
+
+// Função para inicializar conexão com Arduino
+async function initializeArduino() {
+    try {
+        // Listar portas disponíveis
+        const ports = await SerialPort.list();
+        console.log('Portas seriais disponíveis:');
+        ports.forEach((port, index) => {
+            console.log(`${index + 1}. ${port.path} - ${port.manufacturer || 'Desconhecido'}`);
+        });
+
+        // Procurar por Arduino (geralmente tem "Arduino" no manufacturer)
+        const arduinoPortInfo = ports.find(port => 
+            port.manufacturer && 
+            (port.manufacturer.toLowerCase().includes('arduino') || 
+             port.manufacturer.toLowerCase().includes('ch340') ||
+             port.manufacturer.toLowerCase().includes('ftdi'))
+        );
+
+        if (arduinoPortInfo) {
+            console.log(`✅ Arduino encontrado na porta: ${arduinoPortInfo.path}`);
+            
+            arduinoPort = new SerialPort({
+                path: arduinoPortInfo.path,
+                baudRate: 9600,
+                autoOpen: false
+            });
+
+            parser = arduinoPort.pipe(new ReadlineParser({ delimiter: '\n' }));
+
+            // Abrir conexão
+            arduinoPort.open((err) => {
+                if (err) {
+                    console.error('❌ Erro ao abrir porta serial:', err.message);
+                    arduinoPort = null;
+                } else {
+                    console.log('✅ Conexão com Arduino estabelecida!');
+                    
+                    // Escutar dados do Arduino
+                    parser.on('data', handleArduinoData);
+                    
+                    arduinoPort.on('error', (err) => {
+                        console.error('❌ Erro na porta serial:', err.message);
+                    });
+                }
+            });
+        } else {
+            console.log('⚠️  Arduino não encontrado. Verifique se está conectado.');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao inicializar Arduino:', error.message);
+    }
+}
+
+// Função para processar dados recebidos do Arduino
+async function handleArduinoData(data) {
+    try {
+        const message = data.toString().trim();
+        console.log('📡 Dados recebidos do Arduino:', message);
+        
+        // Formato esperado: "SEAT:A1:PRESSED" ou "SEAT:A1:RELEASED"
+        const parts = message.split(':');
+        if (parts.length === 3 && parts[0] === 'SEAT') {
+            const seatCode = parts[1];
+            const action = parts[2];
+            
+            if (action === 'PRESSED') {
+                await updateSeatPhysicalStatus(seatCode, 'pending');
+                io.emit('seatPhysicalUpdate', {
+                    seatCode,
+                    physicalStatus: 'pending',
+                    timestamp: new Date()
+                });
+                console.log(`🟠 Cadeira ${seatCode} marcada como PENDENTE`);
+            } else if (action === 'RELEASED') {
+                await updateSeatPhysicalStatus(seatCode, 'waiting');
+                io.emit('seatPhysicalUpdate', {
+                    seatCode,
+                    physicalStatus: 'waiting',
+                    timestamp: new Date()
+                });
+                console.log(`⚫ Cadeira ${seatCode} marcada como AGUARDANDO`);
+            }
+        }
+    } catch (error) {
+        console.error('❌ Erro ao processar dados do Arduino:', error);
+    }
+}
+
+// Função para atualizar status físico da cadeira
+async function updateSeatPhysicalStatus(seatCode, status) {
+    try {
+        const query = `
+            UPDATE seat_physical_status sps 
+            INNER JOIN seats s ON sps.seat_id = s.id 
+            SET sps.physical_status = ? 
+            WHERE s.seat_code = ?
+        `;
+        await executeQuery(query, [status, seatCode]);
+    } catch (error) {
+        console.error('❌ Erro ao atualizar status físico:', error);
+    }
+}
+
 // Rota para servir o dashboard
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard', 'dashboard.html'));
+});
+
+// Rota para servir a página de simulação
+app.get('/simulator', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'simulator.html'));
 });
 
 // API Routes
@@ -45,12 +159,14 @@ app.get('/api/seats', async (req, res) => {
                     WHEN sc.id IS NOT NULL AND sc.is_active = 1 AND sc.is_used = 0 AND sc.expires_at > NOW() THEN 'purchased'
                     ELSE 'available'
                 END as status,
+                COALESCE(sps.physical_status, 'waiting') as physical_status,
                 sc.unique_code,
                 sc.expires_at,
                 ss.accessed_at
             FROM seats s
             LEFT JOIN seat_sessions ss ON s.id = ss.seat_id AND ss.status = 'active'
             LEFT JOIN seat_codes sc ON s.id = sc.seat_id AND sc.is_active = 1 AND sc.is_used = 0 AND sc.expires_at > NOW()
+            LEFT JOIN seat_physical_status sps ON s.id = sps.seat_id
             ORDER BY s.row_letter, s.seat_number
         `;
 
@@ -317,6 +433,45 @@ app.get('/api/seat-history/:seatCode', async (req, res) => {
     }
 });
 
+// Simular pressionamento de botão (para testes)
+app.post('/api/simulate-button', async (req, res) => {
+    try {
+        const { seatCode, action } = req.body;
+        
+        if (!seatCode || !action) {
+            return res.status(400).json({
+                success: false,
+                message: 'Código da cadeira e ação são obrigatórios'
+            });
+        }
+
+        if (!['PRESSED', 'RELEASED'].includes(action)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ação deve ser PRESSED ou RELEASED'
+            });
+        }
+
+        // Simular dados do Arduino
+        const simulatedData = `SEAT:${seatCode}:${action}`;
+        await handleArduinoData(simulatedData);
+
+        res.json({
+            success: true,
+            message: `Simulação realizada: ${seatCode} ${action}`,
+            seatCode,
+            action
+        });
+
+    } catch (error) {
+        console.error('Erro ao simular botão:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno do servidor'
+        });
+    }
+});
+
 // Finalizar sessão completa - limpar todas as tabelas
 app.post('/api/finish-session', async (req, res) => {
     try {
@@ -336,11 +491,17 @@ app.post('/api/finish-session', async (req, res) => {
             WHERE is_active = 1
         `);
 
+        // Resetar status físico de todas as cadeiras
+        await executeQuery(`
+            UPDATE seat_physical_status 
+            SET physical_status = 'waiting'
+        `);
+
         // Limpar tabela de sessões (opcional - manter histórico comentado)
-        // await executeQuery('DELETE FROM seat_sessions');
-        
+        await executeQuery('DELETE FROM seat_sessions');
+
         // Limpar tabela de códigos (opcional - manter histórico comentado)
-        // await executeQuery('DELETE FROM seat_codes');
+        await executeQuery('DELETE FROM seat_codes');
 
         console.log('✅ Limpeza completa realizada com sucesso');
 
@@ -418,8 +579,14 @@ async function startServer() {
         console.log(`Servidor rodando na porta ${PORT}`);
         console.log(`Interface do usuário: http://localhost:${PORT}`);
         console.log(`Dashboard administrativo: http://localhost:${PORT}/dashboard`);
+        console.log(`Simulador de cadeiras: http://localhost:${PORT}/simulator`);
         console.log('');
         console.log('✅ Sistema pronto para uso!');
+        
+        // Inicializar Arduino após o servidor estar rodando
+        setTimeout(() => {
+            initializeArduino();
+        }, 2000);
     });
 }
 
