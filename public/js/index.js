@@ -3,6 +3,7 @@ const socket = io();
 
 let currentSeatCode = null;
 let seats = [];
+let currentControlledSeat = null; // cadeira atualmente controlada pelo Arduino
 
 // Elementos DOM
 const statusMessage = document.getElementById('statusMessage');
@@ -19,7 +20,20 @@ const confirmSeatValidationBtn = document.getElementById('confirmSeatValidation'
 document.addEventListener('DOMContentLoaded', function() {
     loadSeats();
     setupGlobalListeners();
+    fetchCurrentControlledSeat();
 });
+
+async function fetchCurrentControlledSeat() {
+    try {
+        const res = await fetch('/api/arduino/current-seat');
+        const data = await res.json();
+        currentControlledSeat = data.seatCode || null;
+        // Re-render para garantir atualização visual correta
+        if (seats.length) renderSeats();
+    } catch (e) {
+        console.error('Erro ao buscar cadeira controlada:', e);
+    }
+}
 
 function setupGlobalListeners() {
     // Fechar modal
@@ -193,9 +207,8 @@ function getDisplayStatus(seatData) {
     if (seatData.status === 'occupied') {
         return 'occupied';
     }
-    
-    // Se tem alguém sentado (Arduino detectou), mostrar como pending
-    if (seatData.physical_status === 'pending') {
+    // Mostrar pending SOMENTE se for a cadeira atualmente controlada e botão pressionado
+    if (currentControlledSeat && seatData.seat_code === currentControlledSeat && seatData.physical_status === 'pending') {
         return 'pending';
     }
     
@@ -234,7 +247,7 @@ function updateSeatPhysicalVisual(seatCode, physicalStatus) {
         if (seatIndex !== -1) {
             seats[seatIndex].physical_status = physicalStatus;
         }
-        
+        // Se a cadeira que mudou é a controlada ou se era pending em outra, re-render parcial
         // Remover classes de status existentes
         seatElement.classList.remove('available', 'purchased', 'occupied', 'pending');
         
@@ -243,6 +256,21 @@ function updateSeatPhysicalVisual(seatCode, physicalStatus) {
         if (seatData) {
             const displayStatus = getDisplayStatus(seatData);
             seatElement.classList.add(displayStatus);
+        }
+
+        // Garantir que nenhuma outra cadeira não controlada permaneça visualmente como pending
+        if (physicalStatus === 'pending') {
+            document.querySelectorAll('.seat.pending').forEach(el => {
+                const code = el.dataset.seatCode;
+                if (code !== currentControlledSeat) {
+                    el.classList.remove('pending');
+                    const seatObj = seats.find(s => s.seat_code === code);
+                    if (seatObj) {
+                        const status = getDisplayStatus(seatObj);
+                        el.classList.add(status);
+                    }
+                }
+            });
         }
     }
 }

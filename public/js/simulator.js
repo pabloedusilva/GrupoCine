@@ -2,14 +2,13 @@
 const socket = io();
 
 let seats = [];
-let selectedSeat = null;
+let controlledSeat = null; // Cadeira atualmente controlada pelo Arduino
 
 // Elementos DOM
-const statusMessage = document.getElementById('statusMessage');
-const seatingArea = document.getElementById('seatingArea');
 const seatSelect = document.getElementById('seatSelect');
-const pressButton = document.getElementById('pressButton');
-const releaseButton = document.getElementById('releaseButton');
+const currentSeat = document.getElementById('currentSeat');
+const arduinoStatus = document.getElementById('arduinoStatus');
+const lastActivity = document.getElementById('lastActivity');
 const connectionStatus = document.getElementById('connectionStatus');
 
 // Inicializar quando o DOM estiver carregado
@@ -17,97 +16,68 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSeats();
     setupEventListeners();
     setupSocketListeners();
-    updateConnectionStatus('simulated', 'Modo Simulação Ativo');
+    updateConnectionStatus('Conectando ao Arduino...');
 });
 
 function setupEventListeners() {
-    // Selecionar cadeira
+    // Mudança no select - configura Arduino automaticamente
     seatSelect.addEventListener('change', (e) => {
-        selectedSeat = e.target.value;
-        updateButtonStates();
-        highlightSelectedSeat();
-    });
-
-    // Botões de simulação
-    pressButton.addEventListener('click', () => {
-        if (selectedSeat) {
-            simulateButton('PRESSED');
-        }
-    });
-
-    releaseButton.addEventListener('click', () => {
-        if (selectedSeat) {
-            simulateButton('RELEASED');
+        const selectedSeatCode = e.target.value;
+        if (selectedSeatCode && selectedSeatCode !== controlledSeat) {
+            setArduinoSeat(selectedSeatCode);
         }
     });
 }
 
 function setupSocketListeners() {
-    // Atualizar status da cadeira em tempo real
-    socket.on('seatStatusUpdate', (data) => {
-        console.log('Status atualizado:', data);
-        updateSeatVisual(data.seatCode, data.status);
+    // Confirmação de configuração do Arduino
+    socket.on('arduinoConfigured', (data) => {
+        console.log('Arduino configurado:', data);
+        controlledSeat = data.seatCode;
+        currentSeat.textContent = data.seatCode;
+        lastActivity.textContent = 'Configurado agora';
         
-        // Atualizar dados locais
-        const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
-        if (seatIndex !== -1) {
-            seats[seatIndex].status = data.status;
-        }
+        // Atualizar select para corresponder
+        seatSelect.value = data.seatCode;
     });
 
     // Atualizar status físico da cadeira (Arduino)
     socket.on('seatPhysicalUpdate', (data) => {
         console.log('Status físico atualizado:', data);
-        updateSeatPhysicalVisual(data.seatCode, data.physicalStatus);
         
-        // Atualizar dados locais
-        const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
-        if (seatIndex !== -1) {
-            seats[seatIndex].physical_status = data.physicalStatus;
+        // Atualizar última atividade apenas se for a cadeira controlada
+        if (data.seatCode === controlledSeat) {
+            const action = data.physicalStatus === 'pending' ? 'Botão pressionado' : 'Botão liberado';
+            lastActivity.textContent = `${action} (${new Date().toLocaleTimeString()})`;
         }
-
-        // Mostrar mensagem de feedback
-        const action = data.physicalStatus === 'pending' ? 'sentou' : 'levantou';
-        showMessage(`🎬 Simulação: Pessoa ${action} na cadeira ${data.seatCode}`, 'success');
-    });
-
-    // Sessão finalizada
-    socket.on('sessionFinished', (data) => {
-        console.log('Sessão finalizada:', data);
-        showMessage('🔄 Sessão finalizada pelo administrador. Atualizando...', 'info');
-        setTimeout(() => {
-            loadSeats();
-        }, 1000);
     });
 
     // Status de conexão
     socket.on('connect', () => {
-        console.log('Conectado ao servidor');
-        updateConnectionStatus('simulated', 'Modo Simulação Ativo');
+        updateConnectionStatus('Arduino Conectado', true);
+        loadSeats(); // Recarregar cadeiras ao conectar
     });
 
     socket.on('disconnect', () => {
-        console.log('Desconectado do servidor');
-        updateConnectionStatus('disconnected', 'Desconectado do Servidor');
+        updateConnectionStatus('Desconectado do Servidor', false);
     });
 }
 
-// Carregar estado das cadeiras
 async function loadSeats() {
     try {
         const response = await fetch('/api/seats');
         seats = await response.json();
-        renderSeats();
+        
         populateSeatSelect();
+        
     } catch (error) {
         console.error('Erro ao carregar cadeiras:', error);
-        showMessage("Erro ao carregar informações das cadeiras.", "error");
+        updateConnectionStatus('Erro ao carregar cadeiras', false);
     }
 }
 
-// Preencher select de cadeiras
 function populateSeatSelect() {
-    seatSelect.innerHTML = '<option value="">Selecione uma cadeira</option>';
+    seatSelect.innerHTML = '<option value="">Selecione uma cadeira...</option>';
     
     seats.forEach(seat => {
         const option = document.createElement('option');
@@ -117,188 +87,45 @@ function populateSeatSelect() {
     });
 }
 
-// Renderizar mapa de cadeiras
-function renderSeats() {
-    seatingArea.innerHTML = '';
-    
-    // Agrupar por fileira dinamicamente
-    const rowsMap = new Map();
-    seats.forEach(s => {
-        if (!rowsMap.has(s.row_letter)) rowsMap.set(s.row_letter, []);
-        rowsMap.get(s.row_letter).push(s);
-    });
-    
-    // Ordenar fileiras e assentos
-    const rowLetters = Array.from(rowsMap.keys()).sort();
-    rowLetters.forEach(rowLetter => {
-        const rowSeats = rowsMap.get(rowLetter).sort((a,b) => a.seat_number - b.seat_number);
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'row';
-
-        const rowLabel = document.createElement('div');
-        rowLabel.className = 'row-label';
-        rowLabel.textContent = rowLetter;
-        rowDiv.appendChild(rowLabel);
-
-        rowSeats.forEach(seatData => {
-            const seatCode = seatData.seat_code;
-            const seatDiv = document.createElement('div');
-            seatDiv.className = 'seat';
-            seatDiv.dataset.seatCode = seatCode;
-            seatDiv.textContent = seatData.seat_number;
-
-            // Aplicar classes baseadas no status
-            const displayStatus = getDisplayStatus(seatData);
-            seatDiv.classList.add(displayStatus);
-            if (seatData.is_vip) seatDiv.classList.add('vip');
-
-            // Clique para selecionar cadeira
-            seatDiv.addEventListener('click', () => {
-                seatSelect.value = seatCode;
-                selectedSeat = seatCode;
-                updateButtonStates();
-                highlightSelectedSeat();
-            });
-
-            rowDiv.appendChild(seatDiv);
-        });
-
-        seatingArea.appendChild(rowDiv);
-    });
-}
-
-// Função para determinar o status visual da cadeira
-function getDisplayStatus(seatData) {
-    // Se está ocupada (com código validado), sempre mostrar como occupied
-    if (seatData.status === 'occupied') {
-        return 'occupied';
-    }
-    
-    // Se tem alguém sentado (Arduino detectou), mostrar como pending
-    if (seatData.physical_status === 'pending') {
-        return 'pending';
-    }
-    
-    // Caso contrário, mostrar status padrão
-    return seatData.status || 'available';
-}
-
-// Atualizar visual de uma cadeira específica (status de compra/validação)
-function updateSeatVisual(seatCode, newStatus) {
-    const seatElement = document.querySelector(`[data-seat-code="${seatCode}"]`);
-    if (seatElement) {
-        // Atualizar dados locais
-        const seatIndex = seats.findIndex(s => s.seat_code === seatCode);
-        if (seatIndex !== -1) {
-            seats[seatIndex].status = newStatus;
-        }
-        
-        // Remover classes de status existentes
-        seatElement.classList.remove('available', 'purchased', 'occupied', 'pending');
-        
-        // Aplicar novo status visual
-        const seatData = seats[seatIndex];
-        if (seatData) {
-            const displayStatus = getDisplayStatus(seatData);
-            seatElement.classList.add(displayStatus);
-        }
-    }
-}
-
-// Atualizar visual físico de uma cadeira (Arduino)
-function updateSeatPhysicalVisual(seatCode, physicalStatus) {
-    const seatElement = document.querySelector(`[data-seat-code="${seatCode}"]`);
-    if (seatElement) {
-        // Atualizar dados locais
-        const seatIndex = seats.findIndex(s => s.seat_code === seatCode);
-        if (seatIndex !== -1) {
-            seats[seatIndex].physical_status = physicalStatus;
-        }
-        
-        // Remover classes de status existentes
-        seatElement.classList.remove('available', 'purchased', 'occupied', 'pending');
-        
-        // Aplicar novo status visual
-        const seatData = seats[seatIndex];
-        if (seatData) {
-            const displayStatus = getDisplayStatus(seatData);
-            seatElement.classList.add(displayStatus);
-        }
-    }
-}
-
-// Destacar cadeira selecionada
-function highlightSelectedSeat() {
-    // Remover destaque anterior
-    document.querySelectorAll('.seat').forEach(seat => {
-        seat.classList.remove('simulator-selected');
-    });
-    
-    // Adicionar destaque à cadeira selecionada
-    if (selectedSeat) {
-        const seatElement = document.querySelector(`[data-seat-code="${selectedSeat}"]`);
-        if (seatElement) {
-            seatElement.classList.add('simulator-selected');
-        }
-    }
-}
-
-// Atualizar estado dos botões
-function updateButtonStates() {
-    const hasSelection = selectedSeat !== null && selectedSeat !== '';
-    pressButton.disabled = !hasSelection;
-    releaseButton.disabled = !hasSelection;
-}
-
-// Simular pressionamento de botão
-async function simulateButton(action) {
-    if (!selectedSeat) return;
-    
+async function setArduinoSeat(seatCode) {
     try {
-        const response = await fetch('/api/simulate-button', {
+        arduinoStatus.textContent = 'Configurando...';
+        
+        // Enviar comando para o servidor configurar o Arduino
+        const response = await fetch('/api/set-arduino-seat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                seatCode: selectedSeat, 
-                action: action 
-            })
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ seatCode })
         });
         
         const result = await response.json();
         
         if (result.success) {
-            const actionText = action === 'PRESSED' ? 'pressionamento' : 'liberação';
-            console.log(`✅ Simulação de ${actionText} enviada para ${selectedSeat}`);
+            arduinoStatus.textContent = 'Conectado';
+            console.log(`Arduino configurado para cadeira ${seatCode}`);
         } else {
-            showMessage(`❌ Erro na simulação: ${result.message}`, 'error');
+            arduinoStatus.textContent = 'Erro na configuração';
+            console.error(result.message || 'Erro ao configurar Arduino');
         }
+        
     } catch (error) {
-        console.error('Erro ao simular botão:', error);
-        showMessage('❌ Erro de conexão na simulação.', 'error');
+        console.error('Erro ao configurar Arduino:', error);
+        arduinoStatus.textContent = 'Erro de comunicação';
     }
 }
 
-// Atualizar status da conexão
-function updateConnectionStatus(status, text) {
-    const statusDot = connectionStatus.querySelector('.status-dot');
-    const statusText = connectionStatus.querySelector('.status-text');
+function updateConnectionStatus(message, isConnected = null) {
+    connectionStatus.textContent = message;
     
     // Remover classes anteriores
-    statusDot.classList.remove('connected', 'disconnected', 'simulated');
+    connectionStatus.classList.remove('connected', 'disconnected');
     
-    // Adicionar nova classe
-    statusDot.classList.add(status);
-    statusText.textContent = text;
-}
-
-// Mostrar mensagem de status
-function showMessage(message, type) {
-    statusMessage.textContent = message;
-    statusMessage.className = `status-message ${type}`;
-    statusMessage.style.display = 'block';
-    
-    // Esconder mensagem após 5 segundos
-    setTimeout(() => {
-        statusMessage.style.display = 'none';
-    }, 5000);
+    // Adicionar classe baseada no status
+    if (isConnected === true) {
+        connectionStatus.classList.add('connected');
+    } else if (isConnected === false) {
+        connectionStatus.classList.add('disconnected');
+    }
 }

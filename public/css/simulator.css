@@ -1,7 +1,7 @@
 /* Importar estilos base */
 @import url('index.css');
 
-/* Estilos específicos do simulador */
+/* Estilos específicos do controlador Arduino */
 .controls-panel {
     background-color: #1a1a1a;
     border: 2px solid #333;
@@ -9,11 +9,11 @@
     padding: 20px;
     margin-bottom: 30px;
     width: 100%;
-    max-width: 600px;
+    max-width: 700px;
 }
 
 .controls-panel h3 {
-    color: #ff6b6b;
+    color: #4ecdc4;
     margin-bottom: 15px;
     text-align: center;
     font-size: 1.2rem;
@@ -21,17 +21,21 @@
 
 .control-group {
     margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .control-group label {
-    display: block;
     color: #ccc;
-    margin-bottom: 8px;
     font-weight: 600;
+    min-width: 200px;
 }
 
 .input {
-    width: 100%;
+    flex: 1;
+    min-width: 200px;
     padding: 10px 12px;
     background-color: #2a2a2a;
     border: 1px solid #444;
@@ -42,8 +46,143 @@
 
 .input:focus {
     outline: none;
-    border-color: #ff6b6b;
-    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
+    border-color: #4ecdc4;
+    box-shadow: 0 0 0 2px rgba(78, 205, 196, 0.2);
+}
+
+.btn-blue {
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-blue:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+}
+
+.btn-blue:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Status da cadeira selecionada */
+.current-seat-status {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+}
+
+.current-seat-status h4 {
+    color: #4ecdc4;
+    margin-bottom: 10px;
+}
+
+.seat-info {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.seat-code {
+    background: #ff6b6b;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.seat-physical-status,
+.seat-virtual-status {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.seat-physical-status {
+    background: #ffa726;
+    color: white;
+}
+
+.seat-virtual-status {
+    background: #66bb6a;
+    color: white;
+}
+
+/* Instruções */
+.instructions {
+    background-color: #2a2a2a;
+    border-left: 4px solid #4ecdc4;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 0 8px 8px 0;
+}
+
+.instructions h4 {
+    color: #4ecdc4;
+    margin-bottom: 10px;
+}
+
+.instructions ol {
+    color: #ccc;
+    padding-left: 20px;
+}
+
+.instructions li {
+    margin-bottom: 5px;
+}
+
+/* Cadeira controlada pelo Arduino */
+.seat.controlled-by-arduino {
+    border: 3px solid #4ecdc4;
+    box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+    animation: arduino-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes arduino-glow {
+    from {
+        box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+    }
+    to {
+        box-shadow: 0 0 25px rgba(78, 205, 196, 0.8);
+    }
+}
+
+.controlled-info {
+    background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+}
+
+/* Seleção destacada */
+.seat.selected {
+    border: 2px solid #ffeb3b;
+    box-shadow: 0 0 10px rgba(255, 235, 59, 0.6);
+}
+
+/* Info do Arduino */
+.arduino-info {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #2a2a2a;
+    border-radius: 6px;
+    border: 1px solid #444;
+}
+
+.arduino-info p {
+    margin: 5px 0;
+    color: #ccc;
+}
+
+.arduino-info strong {
+    color: #4ecdc4;
 }
 
 .button-group {

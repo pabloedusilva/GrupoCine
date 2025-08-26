@@ -3,85 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Cadeiras - GrupoCine</title>
+    <title>Controlador Arduino - GrupoCine</title>
     <script src="/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="css/simulator.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            color: #4ecdc4;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+        
+        .subtitle {
+            color: #ccc;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        
+        .select-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #4ecdc4;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        select {
+            width: 100%;
+            padding: 15px 20px;
+            background-color: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #4ecdc4;
+            box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.2);
+        }
+        
+        select option {
+            background-color: #1a1a1a;
+            color: #fff;
+            padding: 10px;
+        }
+        
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border-left: 4px solid #4ecdc4;
+        }
+        
+        .status h3 {
+            color: #4ecdc4;
+            margin-bottom: 10px;
+        }
+        
+        .status-info {
+            color: #ccc;
+            line-height: 1.6;
+        }
+        
+        .current-seat {
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .connection-status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        .connected {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            border: 1px solid #4caf50;
+        }
+        
+        .disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border: 1px solid #f44336;
+        }
+        
+        .navigation {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-link {
+            background: #4ecdc4;
+            color: #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: #44a08d;
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>🎬 Simulador de Cadeiras</h1>
-        <p class="subtitle">Simule a detecção de pessoas sentando nas cadeiras</p>
-    </header>
-
-    <div class="main-container">
-        <!-- Mensagens de Status -->
-        <div id="statusMessage" class="status-message"></div>
-
-        <!-- Controles -->
-        <div class="controls-panel">
-            <h3>Controles de Simulação</h3>
-            <div class="control-group">
-                <label for="seatSelect">Selecionar Cadeira:</label>
-                <select id="seatSelect" class="input">
-                    <option value="">Carregando cadeiras...</option>
-                </select>
-            </div>
-            <div class="button-group">
-                <button id="pressButton" class="btn btn-orange" disabled>
-                    📍 Simular Pessoa Sentou
-                </button>
-                <button id="releaseButton" class="btn btn-gray" disabled>
-                    🚶 Simular Pessoa Levantou
-                </button>
+    <div class="container">
+        <h1>🎛️ Controlador Arduino</h1>
+        <p class="subtitle">Selecione qual cadeira será controlada pelo Arduino físico</p>
+        
+        <div class="select-group">
+            <label for="seatSelect">Cadeira Controlada:</label>
+            <select id="seatSelect">
+                <option value="">Carregando cadeiras...</option>
+            </select>
+        </div>
+        
+        <div class="status">
+            <h3>📊 Status Atual</h3>
+            <div class="status-info">
+                <p><strong>Cadeira controlada:</strong> <span class="current-seat" id="currentSeat">Nenhuma</span></p>
+                <p><strong>Arduino:</strong> <span id="arduinoStatus">Conectando...</span></p>
+                <p><strong>Última atividade:</strong> <span id="lastActivity">-</span></p>
             </div>
         </div>
-
-        <!-- Mapa de Cadeiras -->
-        <div class="screen">TELA</div>
-
-        <div class="seating-area" id="seatingArea">
-            <!-- As cadeiras serão geradas dinamicamente -->
-        </div>
-
-        <!-- Legenda -->
-        <div class="info-panel">
-            <div class="info-item">
-                <div class="info-seat available-info"></div>
-                <span>Aguardando validação</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat pending-info"></div>
-                <span>Pendente (Pessoa sentada)</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat occupied-info"></div>
-                <span>Ocupadas (Código validado)</span>
-            </div>
-            <div class="info-item">
-                <div class="info-seat vip-info"></div>
-                <span>VIP</span>
-            </div>
-        </div>
-
-        <!-- Status do Arduino -->
-        <div class="arduino-status">
-            <h3>Status da Conexão</h3>
-            <div class="status-indicator" id="connectionStatus">
-                <span class="status-dot"></span>
-                <span class="status-text">Verificando conexão...</span>
-            </div>
+        
+        <div class="connection-status" id="connectionStatus">
+            Verificando conexão...
         </div>
     </div>
-
+    
     <nav class="navigation">
-        <a href="/" class="nav-link">🏠 Interface do Usuário</a>
+        <a href="/" class="nav-link">🏠 Interface</a>
         <a href="/dashboard" class="nav-link">📊 Dashboard</a>
     </nav>
-
-    <footer class="app-footer" role="contentinfo">
-        Simulador de Arduino - 
-        <a href="https://plataforma.gpinovacao.senai.br/plataforma/ideia/263775" target="_blank" rel="noopener noreferrer">LYS TEC. MOVIE</a>
-    </footer>
 
     <script src="js/simulator.js"></script>
 </body>
