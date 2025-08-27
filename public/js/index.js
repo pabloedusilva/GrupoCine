@@ -3,6 +3,7 @@ const socket = io();
 
 let currentSeatCode = null;
 let seats = [];
+let currentControlledSeat = null; // cadeira atualmente controlada pelo Arduino
 
 // Elementos DOM
 const statusMessage = document.getElementById('statusMessage');
@@ -19,7 +20,20 @@ const confirmSeatValidationBtn = document.getElementById('confirmSeatValidation'
 document.addEventListener('DOMContentLoaded', function() {
     loadSeats();
     setupGlobalListeners();
+    fetchCurrentControlledSeat();
 });
+
+async function fetchCurrentControlledSeat() {
+    try {
+        const res = await fetch('/api/arduino/current-seat');
+        const data = await res.json();
+        currentControlledSeat = data.seatCode || null;
+        // Re-render para garantir atualização visual correta
+        if (seats.length) renderSeats();
+    } catch (e) {
+        console.error('Erro ao buscar cadeira controlada:', e);
+    }
+}
 
 function setupGlobalListeners() {
     // Fechar modal
@@ -98,10 +112,46 @@ async function loadSeats() {
         const response = await fetch('/api/seats');
         seats = await response.json();
         renderSeats();
+        setupSocketListeners();
     } catch (error) {
         console.error('Erro ao carregar cadeiras:', error);
         showMessage("Erro ao carregar informações das cadeiras.", "error");
     }
+}
+
+function setupSocketListeners() {
+    // Atualizar status da cadeira em tempo real
+    socket.on('seatStatusUpdate', (data) => {
+        console.log('Status atualizado:', data);
+        updateSeatVisual(data.seatCode, data.status);
+        
+        // Atualizar dados locais
+        const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
+        if (seatIndex !== -1) {
+            seats[seatIndex].status = data.status;
+        }
+    });
+
+    // Atualizar status físico da cadeira (Arduino)
+    socket.on('seatPhysicalUpdate', (data) => {
+        console.log('Status físico atualizado:', data);
+        updateSeatPhysicalVisual(data.seatCode, data.physicalStatus);
+        
+        // Atualizar dados locais
+        const seatIndex = seats.findIndex(s => s.seat_code === data.seatCode);
+        if (seatIndex !== -1) {
+            seats[seatIndex].physical_status = data.physicalStatus;
+        }
+    });
+
+    // Sessão finalizada
+    socket.on('sessionFinished', (data) => {
+        console.log('Sessão finalizada:', data);
+        showMessage('🔄 Sessão finalizada pelo administrador. Atualizando...', 'info');
+        setTimeout(() => {
+            loadSeats();
+        }, 1000);
+    });
 }
 
 // Renderizar mapa de cadeiras
@@ -133,7 +183,8 @@ function renderSeats() {
             seatDiv.textContent = seatData.seat_number;
 
             // Aplicar classes baseadas no status
-            seatDiv.classList.add(seatData.status || 'available');
+            const displayStatus = getDisplayStatus(seatData);
+            seatDiv.classList.add(displayStatus);
             if (seatData.is_vip) seatDiv.classList.add('vip');
             if (seatData.status === 'occupied') seatDiv.classList.add('disabled');
 
@@ -150,14 +201,77 @@ function renderSeats() {
     });
 }
 
-// Atualizar visual de uma cadeira específica
+// Função para determinar o status visual da cadeira
+function getDisplayStatus(seatData) {
+    // Se está ocupada (com código validado), sempre mostrar como occupied
+    if (seatData.status === 'occupied') {
+        return 'occupied';
+    }
+    // Mostrar pending SOMENTE se for a cadeira atualmente controlada e botão pressionado
+    if (currentControlledSeat && seatData.seat_code === currentControlledSeat && seatData.physical_status === 'pending') {
+        return 'pending';
+    }
+    
+    // Caso contrário, mostrar status padrão
+    return seatData.status || 'available';
+}
+
+// Atualizar visual de uma cadeira específica (status de compra/validação)
 function updateSeatVisual(seatCode, newStatus) {
     const seatElement = document.querySelector(`[data-seat-code="${seatCode}"]`);
     if (seatElement) {
+        // Atualizar dados locais
+        const seatIndex = seats.findIndex(s => s.seat_code === seatCode);
+        if (seatIndex !== -1) {
+            seats[seatIndex].status = newStatus;
+        }
+        
         // Remover classes de status existentes
-        seatElement.classList.remove('available', 'purchased', 'occupied');
-        // Adicionar nova classe de status
-        seatElement.classList.add(newStatus);
+        seatElement.classList.remove('available', 'purchased', 'occupied', 'pending');
+        
+        // Aplicar novo status visual
+        const seatData = seats[seatIndex];
+        if (seatData) {
+            const displayStatus = getDisplayStatus(seatData);
+            seatElement.classList.add(displayStatus);
+        }
+    }
+}
+
+// Atualizar visual físico de uma cadeira (Arduino)
+function updateSeatPhysicalVisual(seatCode, physicalStatus) {
+    const seatElement = document.querySelector(`[data-seat-code="${seatCode}"]`);
+    if (seatElement) {
+        // Atualizar dados locais
+        const seatIndex = seats.findIndex(s => s.seat_code === seatCode);
+        if (seatIndex !== -1) {
+            seats[seatIndex].physical_status = physicalStatus;
+        }
+        // Se a cadeira que mudou é a controlada ou se era pending em outra, re-render parcial
+        // Remover classes de status existentes
+        seatElement.classList.remove('available', 'purchased', 'occupied', 'pending');
+        
+        // Aplicar novo status visual
+        const seatData = seats[seatIndex];
+        if (seatData) {
+            const displayStatus = getDisplayStatus(seatData);
+            seatElement.classList.add(displayStatus);
+        }
+
+        // Garantir que nenhuma outra cadeira não controlada permaneça visualmente como pending
+        if (physicalStatus === 'pending') {
+            document.querySelectorAll('.seat.pending').forEach(el => {
+                const code = el.dataset.seatCode;
+                if (code !== currentControlledSeat) {
+                    el.classList.remove('pending');
+                    const seatObj = seats.find(s => s.seat_code === code);
+                    if (seatObj) {
+                        const status = getDisplayStatus(seatObj);
+                        el.classList.add(status);
+                    }
+                }
+            });
+        }
     }
 }
 

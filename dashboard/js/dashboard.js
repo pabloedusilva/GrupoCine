@@ -12,6 +12,7 @@ const purchasedSeatsEl = document.getElementById('purchasedSeats');
 const availableSeatsEl = document.getElementById('availableSeats');
 const seatSelect = document.getElementById('seatSelect');
 const generateCodeBtn = document.getElementById('generateCodeBtn');
+const finishSessionBtn = document.getElementById('finishSessionBtn');
 const codeResult = document.getElementById('codeResult');
 const generatedCodeEl = document.getElementById('generatedCode');
 const codeSeatEl = document.getElementById('codeSeat');
@@ -19,9 +20,13 @@ const codeExpiryEl = document.getElementById('codeExpiry');
 const adminSeatingArea = document.getElementById('adminSeatingArea');
 const activityList = document.getElementById('activityList');
 const activeCodesList = document.getElementById('activeCodesList');
-const historyTableBody = document.getElementById('historyTableBody');
-const searchHistoryInput = document.getElementById('searchHistory');
-const statusFilter = document.getElementById('statusFilter');
+
+// Elementos do modal
+const confirmModal = document.getElementById('confirmModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalMessage = document.getElementById('modalMessage');
+const modalCancel = document.getElementById('modalCancel');
+const modalConfirm = document.getElementById('modalConfirm');
 
 // Inicializar dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -37,8 +42,18 @@ document.addEventListener('DOMContentLoaded', function() {
 // Configurar event listeners
 function setupEventListeners() {
     generateCodeBtn.addEventListener('click', generateCode);
-    searchHistoryInput.addEventListener('input', filterHistory);
-    statusFilter.addEventListener('change', filterHistory);
+    finishSessionBtn.addEventListener('click', showFinishSessionModal);
+    
+    // Event listeners do modal
+    modalCancel.addEventListener('click', hideModal);
+    modalConfirm.addEventListener('click', handleModalConfirm);
+    
+    // Fechar modal ao clicar fora
+    confirmModal.addEventListener('click', (e) => {
+        if (e.target === confirmModal) {
+            hideModal();
+        }
+    });
 }
 
 // Carregar dados do dashboard
@@ -51,7 +66,6 @@ async function loadDashboardData() {
         renderAdminSeats();
         updateStats();
         loadActiveCodes();
-        loadHistory();
         
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -299,65 +313,6 @@ function renderActivityFeed() {
     });
 }
 
-// Carregar histórico
-async function loadHistory() {
-    try {
-        // Buscar histórico real do servidor
-        const response = await fetch('/api/seat-history');
-        const historyData = await response.json();
-        
-        renderHistory(historyData);
-        
-    } catch (error) {
-        console.error('Erro ao carregar histórico:', error);
-        // Se não conseguir carregar do servidor, mostrar tabela vazia
-        renderHistory([]);
-    }
-}
-
-// Renderizar histórico
-function renderHistory(data) {
-    historyTableBody.innerHTML = '';
-    
-    data.forEach(session => {
-        const row = document.createElement('tr');
-        
-        const startTime = session.accessed_at ? new Date(session.accessed_at).toLocaleString() : 'N/A';
-        const endTime = session.session_end ? new Date(session.session_end).toLocaleString() : '-';
-        const duration = session.duration_minutes ? `${session.duration_minutes} min` : '-';
-        
-        row.innerHTML = `
-            <td>${session.seat_code}</td>
-            <td style="font-family: monospace;">${session.unique_code}</td>
-            <td><span class="status-badge status-${session.status}">${session.status}</span></td>
-            <td>${startTime}</td>
-            <td>${endTime}</td>
-            <td>${duration}</td>
-            <td>${session.user_ip}</td>
-        `;
-        
-        historyTableBody.appendChild(row);
-    });
-}
-
-// Filtrar histórico
-function filterHistory() {
-    const searchTerm = searchHistoryInput.value.toLowerCase();
-    const statusFilterValue = statusFilter.value;
-    
-    const rows = historyTableBody.querySelectorAll('tr');
-    
-    rows.forEach(row => {
-        const seatCode = row.cells[0].textContent.toLowerCase();
-        const status = row.cells[2].querySelector('.status-badge').textContent.toLowerCase();
-        
-        const matchesSearch = seatCode.includes(searchTerm);
-        const matchesStatus = !statusFilterValue || status === statusFilterValue;
-        
-        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
-    });
-}
-
 // Mostrar notificação
 function showNotification(message, type = 'info', duration = 5000) {
     const notification = document.createElement('div');
@@ -396,3 +351,134 @@ socket.on('disconnect', () => {
     console.log('Dashboard desconectado');
     addActivity('warning', 'Conexão perdida com o servidor');
 });
+
+socket.on('sessionFinished', (data) => {
+    addActivity('warning', 'Sessão finalizada pelo administrador');
+    loadDashboardData();
+    showNotification('Sessão finalizada! Todas as cadeiras foram liberadas.', 'success', 8000);
+});
+
+// Função para mostrar modal de confirmação de finalização de sessão
+function showFinishSessionModal() {
+    const occupiedCount = seats.filter(s => s.status === 'occupied').length;
+    const purchasedCount = seats.filter(s => s.status === 'purchased').length;
+    const activeCodesCount = activeCodes.length;
+
+    modalTitle.textContent = 'Finalizar Sessão Completa';
+    
+    let message = 'Esta ação irá:<br><br>';
+    message += '• Finalizar todas as sessões ativas<br>';
+    message += '• Desativar todos os códigos ativos<br>';
+    message += '• Liberar todas as cadeiras ocupadas<br>';
+    message += '• Limpar as listas de atividades<br><br>';
+    
+    if (occupiedCount > 0 || purchasedCount > 0 || activeCodesCount > 0) {
+        message += `<strong>Atualmente há:</strong><br>`;
+        if (occupiedCount > 0) message += `• ${occupiedCount} cadeira(s) ocupada(s)<br>`;
+        if (purchasedCount > 0) message += `• ${purchasedCount} cadeira(s) com código ativo<br>`;
+        if (activeCodesCount > 0) message += `• ${activeCodesCount} código(s) ativo(s)<br><br>`;
+        message += '<strong>Tem certeza que deseja continuar?</strong>';
+    } else {
+        message += 'Não há sessões ativas no momento.<br><br>';
+        message += '<strong>Deseja limpar o sistema mesmo assim?</strong>';
+    }
+
+    modalMessage.innerHTML = message;
+    modalConfirm.textContent = 'Finalizar Sessão';
+    modalConfirm.className = 'btn btn-danger';
+    
+    // Definir ação de confirmação
+    modalConfirm.onclick = () => {
+        hideModal();
+        finishSession();
+    };
+    
+    showModal();
+}
+
+// Funções do modal
+function showModal() {
+    confirmModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal() {
+    confirmModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+    modalConfirm.onclick = null; // Limpar evento anterior
+}
+
+function handleModalConfirm() {
+    // Esta função será sobrescrita dinamicamente
+    hideModal();
+}
+
+// Função para finalizar sessão
+async function finishSession() {
+    const occupiedCount = seats.filter(s => s.status === 'occupied').length;
+    const purchasedCount = seats.filter(s => s.status === 'purchased').length;
+    const activeCodesCount = activeCodes.length;
+    
+    finishSessionBtn.disabled = true;
+    finishSessionBtn.innerHTML = '<span class="material-symbols-rounded">hourglass_empty</span> Finalizando...';
+    
+    try {
+        const response = await fetch('/api/finish-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Limpar interface local
+            clearLocalData();
+            
+            // Recarregar dados
+            await loadDashboardData();
+            
+            // Mensagem específica baseada no que foi limpo
+            let successMessage = 'Sistema reiniciado com sucesso!';
+            if (occupiedCount > 0 || purchasedCount > 0 || activeCodesCount > 0) {
+                successMessage = `Sessão finalizada! ${occupiedCount + purchasedCount} cadeira(s) liberada(s) e ${activeCodesCount} código(s) desativado(s).`;
+            }
+            
+            addActivity('success', 'Sessão finalizada pelo administrador');
+            showNotification(successMessage, 'success', 8000);
+            
+        } else {
+            showNotification(result.message || 'Erro ao finalizar sessão', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao finalizar sessão:', error);
+        showNotification('Erro de conexão ao finalizar sessão', 'error');
+    } finally {
+        finishSessionBtn.disabled = false;
+        finishSessionBtn.innerHTML = '<span class="material-symbols-rounded">stop_circle</span> Finalizar Sessão';
+    }
+}
+
+// Função para limpar dados locais da interface
+function clearLocalData() {
+    // Limpar resultado de código gerado
+    codeResult.style.display = 'none';
+    generatedCodeEl.textContent = '';
+    codeSeatEl.textContent = '';
+    codeExpiryEl.textContent = '';
+    
+    // Resetar select de cadeira
+    seatSelect.value = '';
+    
+    // Limpar arrays
+    activeCodes = [];
+    activityLog = [];
+    
+    // Renderizar listas vazias
+    renderActiveCodes();
+    renderActivityFeed();
+    
+    console.log('Interface local limpa');
+}
